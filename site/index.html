@@ -1,0 +1,1289 @@
+<title>RinkRank</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<meta name="description" content="Power rankings, strength ratings, game odds and league projections for PCAHA minor hockey. An independent site.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Big+Shoulders+Display:wght@600;800&family=Source+Sans+3:wght@400;600;700&family=IBM+Plex+Mono:wght@400;600&display=swap">
+<style>
+/* Layout: a rink-side stats board. Sticky scoreboard header, one reading column, wide tables scroll inside their own frames. */
+:root {
+  --ice: #f2f5f7;        /* page: fresh ice */
+  --board: #ffffff;      /* raised surfaces: the boards */
+  --ink: #14202a;
+  --muted: #5b6b78;
+  --line: #d8e0e6;
+  --red: #c8203a;        /* goal-light red, used sparingly */
+  --blue: #1d5bb8;       /* blue line: links and our marks */
+  --blue-soft: #e3ecf8;
+  --good: #1e7f4f;
+  --bad: #b3261e;
+  --tie: #8a6d1f;
+  --bar: #c9d5df;
+  --display: "Big Shoulders Display", "Arial Narrow", Impact, sans-serif;
+  --body: "Source Sans 3", "Segoe UI", system-ui, sans-serif;
+  --mono: "IBM Plex Mono", ui-monospace, Menlo, monospace;
+}
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) {
+  --ice: #0d141a; --board: #141e26; --ink: #e4ebf0; --muted: #91a2b0; --line: #26343f;
+  --red: #ff5a6e; --blue: #6ea5ff; --blue-soft: #1b2a3c; --good: #4cc68a; --bad: #ff7a70; --tie: #d9b55a; --bar: #2c3b47;
+  color-scheme: dark; } }
+:root[data-theme="dark"] {
+  --ice: #0d141a; --board: #141e26; --ink: #e4ebf0; --muted: #91a2b0; --line: #26343f;
+  --red: #ff5a6e; --blue: #6ea5ff; --blue-soft: #1b2a3c; --good: #4cc68a; --bad: #ff7a70; --tie: #d9b55a; --bar: #2c3b47;
+  color-scheme: dark; }
+
+* { box-sizing: border-box; }
+body { background: var(--ice); color: var(--ink); font: 16px/1.5 var(--body); }
+body::before { content: ""; position: fixed; inset: 0 0 auto; height: env(safe-area-inset-top, 0px); z-index: 10; background: var(--board); }
+a { color: var(--blue); text-decoration: none; }
+a:hover { text-decoration: underline; }
+a:focus-visible, button:focus-visible, input:focus-visible, select:focus-visible { outline: 2px solid var(--blue); outline-offset: 2px; border-radius: 4px; }
+.wrap { max-width: 1120px; margin: 0 auto; padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); }
+.num { font-family: var(--mono); font-variant-numeric: tabular-nums; }
+
+/* header */
+header { position: sticky; top: env(safe-area-inset-top, 0px); z-index: 5; background: var(--board); border-bottom: 1px solid var(--line); }
+.bar { display: flex; align-items: center; gap: 14px 22px; flex-wrap: wrap; padding-block: 10px; }
+.brand { display: flex; align-items: baseline; gap: 8px; color: var(--ink); }
+.brand b { font: 800 28px/1 var(--display); letter-spacing: .5px; text-transform: uppercase; }
+.brand b i { font-style: normal; color: var(--red); }
+.brand span { font-size: 13px; color: var(--muted); }
+.divs { display: flex; gap: 4px; }
+.divs button { font: 600 15px/1 var(--display); letter-spacing: .5px; padding: 7px 10px; border: 1px solid var(--line); background: transparent; color: var(--ink); border-radius: 6px; cursor: pointer; }
+.divs button[aria-pressed="true"] { background: var(--ink); color: var(--board); border-color: var(--ink); }
+.levels { padding: 3px; border: 1px solid var(--line); border-radius: 8px; gap: 2px; }
+.levels button { border: 0; padding: 6px 12px; }
+.levels button[aria-pressed="true"] { background: var(--red); color: #fff; }
+nav.views { display: flex; gap: 2px; margin-left: auto; flex-wrap: wrap; }
+nav.views a { padding: 6px 10px; border-radius: 6px; color: var(--muted); font-weight: 600; }
+nav.views a[aria-current="page"] { color: var(--ink); background: var(--blue-soft); text-decoration: none; }
+/* the red line under the header */
+.redline { height: 3px; background: linear-gradient(90deg, var(--blue) 0 20%, transparent 20% 40%, var(--red) 40% 60%, transparent 60% 80%, var(--blue) 80%); opacity: .85; }
+
+main { padding-block: 24px 64px; }
+h1 { font: 800 clamp(30px, 5vw, 44px)/1.02 var(--display); text-transform: uppercase; letter-spacing: .3px; margin: 0 0 6px; text-wrap: balance; }
+h2 { font: 800 24px/1.1 var(--display); text-transform: uppercase; letter-spacing: .4px; margin: 34px 0 10px; text-wrap: balance; }
+h3 { font: 700 16px/1.3 var(--body); margin: 0 0 6px; }
+.lede { color: var(--muted); max-width: 68ch; margin: 0 0 18px; }
+.eyebrow { font: 600 12px/1 var(--mono); text-transform: uppercase; letter-spacing: 1.2px; color: var(--muted); }
+.note { font-size: 14px; color: var(--muted); max-width: 72ch; }
+
+/* controls */
+.controls { display: flex; flex-wrap: wrap; gap: 10px 16px; align-items: center; margin: 4px 0 14px; }
+.chips { display: flex; flex-wrap: wrap; gap: 6px; }
+.chip { font: 600 14px/1 var(--body); padding: 7px 11px; border-radius: 999px; border: 1px solid var(--line); background: var(--board); color: var(--ink); cursor: pointer; }
+.chip[aria-pressed="true"] { background: var(--blue); border-color: var(--blue); color: #fff; }
+.chip small { font-weight: 400; opacity: .75; margin-left: 4px; }
+select, input[type="search"] { font: 15px var(--body); padding: 7px 10px; border: 1px solid var(--line); border-radius: 8px; background: var(--board); color: var(--ink); max-width: 100%; }
+input[type="search"] { min-width: 0; width: 220px; }
+
+/* tables */
+.tframe { overflow-x: auto; background: var(--board); border: 1px solid var(--line); border-radius: 10px; }
+table { border-collapse: collapse; width: 100%; font-size: 15px; }
+th, td { padding: 9px 10px; text-align: right; white-space: nowrap; border-bottom: 1px solid var(--line); }
+th { font: 600 11px/1.2 var(--mono); text-transform: uppercase; letter-spacing: .8px; color: var(--muted); position: sticky; top: 0; background: var(--board); }
+th button { font: inherit; color: inherit; background: none; border: 0; padding: 0; cursor: pointer; text-transform: inherit; letter-spacing: inherit; }
+th button[data-active="true"] { color: var(--ink); }
+td.l, th.l { text-align: left; }
+tbody tr:last-child td { border-bottom: 0; }
+tbody tr:hover { background: var(--blue-soft); }
+.team { white-space: normal; min-width: 190px; }
+.team a { font-weight: 700; color: var(--ink); }
+.team small { display: block; color: var(--muted); font-size: 13px; }
+.rank { font: 800 20px/1 var(--display); width: 2.2em; }
+.mv { font: 600 12px var(--mono); }
+.up { color: var(--good); } .down { color: var(--bad); } .flat { color: var(--muted); }
+.prov { font: 600 10px var(--mono); color: var(--tie); border: 1px solid currentColor; border-radius: 3px; padding: 0 3px; margin-left: 4px; vertical-align: 2px; }
+
+.power { display: inline-flex; align-items: center; gap: 8px; justify-content: flex-end; }
+.pbar { width: 74px; height: 8px; background: var(--bar); border-radius: 4px; position: relative; overflow: hidden; }
+.pbar i { position: absolute; top: 0; bottom: 0; background: var(--blue); }
+.pbar::after { content: ""; position: absolute; left: 50%; top: -2px; bottom: -2px; width: 1px; background: var(--muted); }
+
+.form { display: inline-flex; gap: 2px; }
+.form b { width: 18px; height: 18px; border-radius: 3px; font: 600 11px/18px var(--mono); text-align: center; color: #fff; }
+.form .W { background: var(--good); } .form .L { background: var(--bad); } .form .T { background: var(--tie); }
+
+/* cards and tiles: used only on the team page summary */
+.tiles { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 10px; margin: 18px 0; }
+.tile { background: var(--board); border: 1px solid var(--line); border-radius: 10px; padding: 12px 14px; }
+.tile .v { font: 800 30px/1.05 var(--display); }
+.tile .k { font: 600 11px/1.2 var(--mono); text-transform: uppercase; letter-spacing: .8px; color: var(--muted); }
+.tile .s { font-size: 13px; color: var(--muted); margin-top: 2px; }
+
+.grid2 { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 18px; }
+.grid2 > * { min-width: 0; }
+.panel { background: var(--board); border: 1px solid var(--line); border-radius: 10px; padding: 16px; }
+
+.report { list-style: none; padding: 0; margin: 0; display: grid; gap: 10px; }
+.report li { display: grid; grid-template-columns: 26px 1fr; gap: 8px; align-items: start; }
+.report li::before { content: attr(data-tag); font: 700 11px/22px var(--mono); text-align: center; border-radius: 4px; height: 22px; }
+.report li[data-tag="+"]::before { background: var(--good); color: #fff; }
+.report li[data-tag="−"]::before { background: var(--bad); color: #fff; }
+.report li[data-tag="i"]::before { background: var(--bar); color: var(--ink); }
+
+/* game cards */
+.days { display: grid; gap: 22px; }
+.day h3 { font: 700 13px/1 var(--mono); text-transform: uppercase; letter-spacing: 1px; color: var(--muted); margin: 0 0 8px; }
+.games { display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: 10px; }
+.game { background: var(--board); border: 1px solid var(--line); border-radius: 10px; padding: 12px 14px; display: grid; gap: 8px; min-width: 0; }
+.game.watch { border-color: var(--red); }
+.game .meta { display: flex; justify-content: space-between; gap: 8px; font-size: 13px; color: var(--muted); }
+.game .meta span:last-child { text-align: right; }
+.side { display: grid; grid-template-columns: 1fr auto; gap: 8px; align-items: baseline; }
+.side a { font-weight: 700; color: var(--ink); overflow-wrap: anywhere; }
+.side .num { font-weight: 600; }
+.odds { display: flex; height: 10px; border-radius: 5px; overflow: hidden; background: var(--bar); }
+.odds i { display: block; }
+.odds .h { background: var(--blue); } .odds .t { background: var(--muted); opacity: .45; } .odds .a { background: var(--red); }
+.oddslbl { display: flex; justify-content: space-between; font: 12px var(--mono); color: var(--muted); }
+.odds3 { display: grid; grid-template-columns: 1fr auto 1fr; gap: 8px; font: 12px/1.3 var(--body); color: var(--muted); }
+.odds3 span:nth-child(2) { text-align: center; }
+.odds3 span:last-child { text-align: right; }
+.odds3 b { display: block; font: 700 16px/1.2 var(--mono); }
+.odds3 span:first-child b { color: var(--blue); }
+.odds3 span:last-child b { color: var(--red); }
+.tag { font: 600 10px/1 var(--mono); text-transform: uppercase; letter-spacing: .8px; color: var(--red); }
+
+.cal { width: 100%; max-width: 420px; }
+.cal text { fill: var(--muted); font: 11px var(--mono); }
+[data-tip] { cursor: help; }
+span[data-tip], .k[data-tip] { text-decoration: underline dotted; text-decoration-color: var(--muted); text-underline-offset: 3px; }
+th button[data-tip] { text-decoration: underline dotted; text-decoration-color: var(--muted); text-underline-offset: 3px; }
+#tip { position: fixed; z-index: 30; max-width: min(320px, calc(100vw - 32px)); background: var(--ink); color: var(--board); font: 14px/1.45 var(--body); padding: 10px 12px; border-radius: 8px; box-shadow: 0 8px 24px rgb(0 0 0 / .22); pointer-events: none; text-align: left; white-space: normal; }
+#tip b { display: block; font: 700 12px/1.3 var(--mono); text-transform: uppercase; letter-spacing: .8px; margin-bottom: 3px; }
+.gloss { display: grid; grid-template-columns: minmax(120px, 190px) 1fr; gap: 10px 18px; margin: 0; }
+.gloss dt { font-weight: 700; }
+.gloss dd { margin: 0; color: var(--ink); }
+@media (max-width: 520px) { .gloss { grid-template-columns: 1fr; gap: 2px 0; } .gloss dd { margin-bottom: 10px; } }
+.star { background: none; border: 0; padding: 0 6px 0 0; font-size: 17px; line-height: 1; color: var(--muted); cursor: pointer; vertical-align: 1px; }
+.star[aria-pressed="true"] { color: var(--tie); }
+.star.big { font-size: 28px; vertical-align: 4px; padding-left: 4px; }
+.mine-wrap { margin-bottom: 22px; }
+.mine { display: grid; grid-template-columns: repeat(auto-fill, minmax(250px, 1fr)); gap: 10px; }
+.minecard { display: grid; gap: 4px; background: var(--board); border: 1px solid var(--line); border-left: 4px solid var(--tie); border-radius: 10px; padding: 12px 14px; color: var(--ink); font-size: 14px; min-width: 0; }
+.minecard:hover { text-decoration: none; border-color: var(--blue); }
+.minecard > b { font-size: 16px; }
+.tierflag { color: var(--red); font-weight: 600; }
+.tierbadge { display: inline-block; font: 600 13px/1 var(--mono); text-transform: uppercase; letter-spacing: .6px; color: #fff; background: var(--red); padding: 7px 10px; border-radius: 6px; }
+.tierbadge:hover { text-decoration: none; opacity: .9; }
+ul.plain { list-style: none; margin: 0; padding: 0; display: grid; gap: 9px; }
+ul.plain .note { font-size: 13px; }
+.clubteams { margin: 8px 0 4px; padding-left: 18px; display: grid; gap: 4px; font-weight: 400; }
+details summary { cursor: pointer; }
+a.preview { font-weight: 600; white-space: nowrap; }
+.matchtitle { font-size: clamp(26px, 4.2vw, 38px); }
+.matchodds { display: grid; gap: 10px; max-width: 640px; }
+.matchodds .side a { font-size: 18px; }
+.num.big { font: 800 32px/1 var(--display); }
+table.compare th { text-align: center; white-space: normal; font: 700 13px/1.25 var(--body); text-transform: none; letter-spacing: 0; color: var(--ink); }
+table.compare th a { color: var(--ink); }
+table.compare td { text-align: center; }
+table.compare td.mid, table.compare th.mid { color: var(--muted); font-size: 13px; width: 38%; }
+table.compare td.win { font-weight: 700; color: var(--blue); }
+.favh { color: var(--blue); font-weight: 700; } .fava { color: var(--red); font-weight: 700; }
+.sbar { display: grid; gap: 5px; }
+.sbar-names { display: flex; justify-content: space-between; gap: 10px; font: 600 12px/1.2 var(--body); color: var(--muted); }
+.sbar-names span:last-child { text-align: right; }
+.sbar-track { position: relative; display: flex; height: 12px; border-radius: 6px; overflow: hidden; background: var(--bar); }
+.sbar-track .sa { background: var(--blue); } .sbar-track .sb { background: var(--red); }
+.sbar-label { font: 700 13px/1.2 var(--body); text-align: center; color: var(--muted); }
+.sbar-label.fa { color: var(--blue); } .sbar-label.fb { color: var(--red); }
+.sbar.small .sbar-track { height: 8px; width: 80px; }
+.trend { display: inline-flex; align-items: center; gap: 6px; }
+.sharebtn { font: 600 14px/1 var(--body); padding: 8px 14px; border-radius: 999px; border: 1px solid var(--blue); background: var(--board); color: var(--blue); cursor: pointer; vertical-align: 8px; text-transform: none; letter-spacing: 0; }
+.sharebtn:hover { background: var(--blue); color: #fff; }
+#toast { position: fixed; left: 50%; bottom: calc(24px + env(safe-area-inset-bottom, 0px)); transform: translateX(-50%); background: var(--ink); color: var(--board); padding: 10px 16px; border-radius: 8px; font-size: 14px; z-index: 40; max-width: calc(100vw - 32px); overflow-wrap: anywhere; }
+footer { border-top: 1px solid var(--line); color: var(--muted); font-size: 14px; padding-block: 18px 30px; }
+.loading { color: var(--muted); padding: 40px 0; }
+@media (max-width: 640px) {
+  .hide-sm { display: none; }
+  th, td { padding: 8px 7px; }
+  header { position: relative; top: 0; }
+  .bar { gap: 10px 14px; padding-block: 8px; }
+  nav.views { margin-left: 0; width: 100%; flex-wrap: nowrap; overflow-x: auto; scrollbar-width: none; margin-right: -16px; }
+  nav.views a { white-space: nowrap; }
+  .pbar { width: 46px; }
+}
+@media (prefers-reduced-motion: no-preference) { .pbar i, .odds i { transition: width .3s ease; } }
+</style>
+
+<header>
+  <div class="wrap bar">
+    <a class="brand" href="#u13-rankings"><b>Rink<i>Rank</i></b><span>PCAHA analytics</span></a>
+    <div class="divs" id="divs" role="group" aria-label="Age group"></div>
+    <div class="divs levels" id="levels" role="group" aria-label="Rep or house"></div>
+    <div class="divs levels" id="genders" role="group" aria-label="Mixed or female"></div>
+    <nav class="views" id="views" aria-label="Sections"></nav>
+  </div>
+  <div class="redline"></div>
+</header>
+<main class="wrap" id="app"><p class="loading">Loading ratings…</p></main>
+<footer class="wrap" id="foot"></footer>
+<div id="tip" role="tooltip" hidden></div>
+
+<script>
+const $ = (s, el = document) => el.querySelector(s);
+const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const S = { index: null, data: {}, div: 'u13', view: 'rankings', team: null, cat: {}, region: 'pcaha', q: '', sort: 'power', gamesCat: 'all' };
+const VIEWS = [['rankings','Rankings'],['week','This week'],['games','Games'],['leagues','Projections'],['record','Track record'],['tiers','Tiers'],['clubs','Clubs'],['search','Search'],['method','How it works']];
+const GLOBAL_VIEWS = new Set(['clubs', 'method', 'search']);
+const LEVELS = [['rep', 'Rep'], ['house', 'House']];
+const levelOf = c => /\bC\b/.test(c || '') ? 'house' : 'rep';
+const GENDERS = [['mixed', 'Mixed'], ['female', 'Female']];
+const genderOf = c => /Female$/.test(c || '') ? 'female' : 'mixed';
+const inLevel = c => levelOf(c) === S.level && genderOf(c) === S.gender;
+const levelName = () => (S.gender === 'female' ? 'female ' : '') + (S.level === 'house' ? 'house' : 'rep');
+const REGIONS = [['pcaha','PCAHA'],['island','Island'],['visitor','Visiting'],['all','All']];
+
+const GLOSS = {
+  rank: ['Rank', 'Position by Power among the teams shown. Change the filter and the ranks change with it.'],
+  move: ['Movement', 'Places gained or lost compared with the ratings two weeks ago. "new" means the team had no rating then.'],
+  record: ['Record', 'Wins, losses and ties in every game this season: placement, league, playoffs and tournaments.'],
+  power: ['Power', 'Goal differential per game you would expect against an average team in this category, on neutral ice. +2.0 means about two goals better than average. It accounts for who each team played.'],
+  gf: ['GF*', 'Goals per game this team would be expected to score against an average opponent in the age group. The offence rating.'],
+  ga: ['GA*', 'Goals per game this team would be expected to allow against an average opponent in the age group. The defence rating; lower is better.'],
+  sched: ['Schedule strength', 'Average Power of the opponents this team has played, compared with the category average. Positive means a tougher schedule than most.'],
+  luck: ['Luck', 'Points percentage minus the points percentage the team would usually earn from its game-by-game chances. Big positive numbers often mean close wins that tend not to last; big negative numbers suggest a better team than the record shows.'],
+  form: ['Last 5', 'Results of the five most recent games, newest on the left: W win, L loss, T tie.'],
+  pp: ['Power play %', 'Power-play goals divided by power-play chances. Chances are estimated from the other team\'s minor, major and match penalties, so coincidental penalties count slightly too many. Shown after six or more chances.'],
+  pk: ['Penalty kill %', 'Share of this team\'s penalties that ended without a power-play goal against. Estimated the same way as the power play. Shown after six or more penalties.'],
+  early: ['Early', 'Fewer than six games played. The rating is held close to average until more results come in, so expect it to move.'],
+  region: ['Teams shown', 'PCAHA: teams in PCAHA placement, league or playoff schedules. Island: Vancouver Island (VIAHA) teams. Visiting: teams seen only in tournaments. All teams are rated together; this only filters the list.'],
+  pts: ['Pts', 'Points in the league standings so far.'],
+  gp: ['GP', 'League games played so far.'],
+  left: ['Left', 'League games still on the schedule.'],
+  projected: ['Projected', 'Average final points across 4,000 simulated finishes of the league schedule.'],
+  p1: ['1st', 'Share of simulations where the team finished first in its group.'],
+  top: ['Top half', 'Share of simulations where the team finished in the top half of its group.'],
+  avgfin: ['Avg finish', 'Average final position in the group across all simulations.'],
+  winchance: ['Going in', 'The chance the model gave this team before the game, using only results up to then. Grey numbers are early-season games, before both teams had played three times; those use today\'s ratings.'],
+  vsexp: ['Vs expected', 'Actual goal margin minus the margin the ratings expected. +2.0 means the team did two goals better than expected that day.'],
+  odds: ['Strength bar', 'How the two teams compare going in. The longer side has the edge. Words: Even, Slight edge, Clear edge or Strong favourite. It comes from the same ratings as everything else; we show it as a bar rather than percentages because these are kids\' games.'],
+  expgoals: ['Expected goals', 'The average score the ratings predict for this game.'],
+  watch: ['Game to watch', 'Both teams are in the top quarter of their category and the odds are close.'],
+  upset: ['Winner going in', 'How the winner looked before the game: from Strong favourite to Big underdog. Underdog wins are the upsets.'],
+  offence: ['Offence', 'Expected goals for per game against an average opponent in the age group.'],
+  defence: ['Defence', 'Expected goals against per game against an average opponent in the age group. Lower is better.'],
+  splits: ['One-goal games', 'Record in games decided by a single goal. Teams that win most of these often have a positive Luck number.'],
+  logloss: ['Odds error', 'Log loss: the average penalty for the chance given to what actually happened. Saying 90% and being wrong costs much more than saying 55% and being wrong. Lower is better; it rewards honest percentages, not just correct picks.'],
+  trend: ['Trend', 'The club\'s score in each of the last three seasons and now, for the teams selected at the top (rep or house, mixed or female). The number is the change since last season. Past seasons are rated the same way, from that season\'s games.'],
+  status: ['Status', 'What the points table already guarantees, whatever happens in the games left: clinched first, top half clinched, out of first or out of the top half. "8 pts clinches first" is how many more points guarantee first. Tie-breakers aren\'t in the public data, so a tie on points never counts as clinched.'],
+  picked: ['Winner called', 'Share of games with a winner where the team the model favoured beforehand won. Ties are left out.'],
+  baseline: ['Better record', 'The simple alternative: before each game, pick whichever team had the better points percentage so far. The model should beat this.'],
+  confident: ['Confident calls', 'Games where the model gave one team 70% or more before the game, and how often that team won.'],
+  calib: ['Honest odds', 'Games are grouped by how confident the model was. If the odds are honest, teams given 60% win about 60% of the time, teams given 80% about 80%.'],
+  source: ['Source', 'Published: the odds this site showed before the game, saved and never changed. Replayed: odds rebuilt for games before launch, using only results from before that day.'],
+  level: ['Rep and House', 'Rep is A, AA, AAA and U11 Select teams. House is C teams. The switch at the top filters every page; ratings are calculated across all games either way.'],
+  gender: ['Mixed and Female', 'Mixed is the open program; Female is girls-only teams and leagues. The switch at the top filters every page. Female and mixed teams that meet in tournaments are rated on the same scale.'],
+  tier: ['Tier check', 'Compares a team\'s Power with the middle team of each tier in its category. "Plays like Tier 1" means its results sit closer to the Tier 1 teams than to its own tier. Needs six or more games.'],
+  hist: ['Power by week', 'The team\'s Power at the end of each week, refitted using only the games played up to then. The dashed line is the category average; the numbers are the rank at the start and now.'],
+  cpct: ['Category percentile', 'Share of teams in the same category (for example U13 A) that a team is rated above. 50 is a typical team; 90 means better than nine in ten.'],
+  topq: ['Top 25%', 'How many of the association\'s teams sit in the top quarter of their category.'],
+  poolwin: ['Pool win', 'Share of simulations where the team finished first in its tournament pool, on points and then goal difference.'],
+  depth: ['Goals from top three', 'Share of the team\'s goals scored by its three leading scorers. High numbers mean the offence depends on a few players.'],
+};
+const tipAttr = k => GLOSS[k] ? ` data-tip="${k}"` : '';
+const tipSpan = (k, label) => `<span tabindex="0"${tipAttr(k)}>${label}</span>`;
+
+function store(k, v) { try { if (v === undefined) return localStorage.getItem(k); localStorage.setItem(k, v); } catch (e) { return null; } }
+
+async function getJSON(p) { const r = await fetch(p); if (!r.ok) throw new Error(p + ' ' + r.status); return r.json(); }
+async function loadDiv(div) { if (!S.data[div]) S.data[div] = await getJSON(`data/${div}.json`); return S.data[div]; }
+
+const fmt = (x, d = 1) => x == null ? '–' : Number(x).toFixed(d);
+const sgn = (x, d = 1) => x == null ? '–' : (x > 0 ? '+' : x < 0 ? '−' : '') + Math.abs(x).toFixed(d);
+const pct = x => x == null ? '–' : Math.round(x) + '%';
+const dateLabel = d => new Date(d + 'T12:00:00').toLocaleDateString('en-CA', { weekday: 'short', month: 'short', day: 'numeric' });
+const timeLabel = st => st ? new Date(st).toLocaleTimeString('en-CA', { hour: 'numeric', minute: '2-digit', timeZone: 'America/Vancouver' }) : '';
+
+/* ---------- maths shared with the build ---------- */
+function catMean(D, cat) {
+  const ts = Object.values(D.teams).filter(t => t.c === cat);
+  return ts.reduce((s, t) => s + t.net, 0) / Math.max(ts.length, 1);
+}
+function power(D, t) { return t.net - catMean(D, t.c); }
+function poisson(l, n = 20) { const p = [Math.exp(-l)]; for (let k = 1; k <= n; k++) p.push(p[k - 1] * l / k); return p; }
+// Same flattening curve as scripts/model.py: fewer games played means less certain odds.
+const FLATTEN = [[0, 6], [1, 2.5], [2, 2], [3.5, 1.8], [5.5, 1.6], [8, 1.5], [12, 1.3], [20, 1.2]];
+function flattenFor(g) { if (g >= 20) return 1.2; for (let i = 0; i < FLATTEN.length - 1; i++) { const [g0, t0] = FLATTEN[i], [g1, t1] = FLATTEN[i + 1]; if (g >= g0 && g <= g1) return t0 + (t1 - t0) * (g - g0) / (g1 - g0); } return 6; }
+function matchup(D, h, a) {
+  const lh = h.off * a.def / D.avgGoals, la = a.off * h.def / D.avgGoals;
+  const ph = poisson(lh), pa = poisson(la); let H = 0, T = 0, A = 0;
+  for (let i = 0; i < ph.length; i++) for (let j = 0; j < pa.length; j++) { const p = ph[i] * pa[j]; if (i > j) H += p; else if (i === j) T += p; else A += p; }
+  const tf = flattenFor(Math.min(h.gp, a.gp));
+  const q = [H, T, A].map(v => Math.pow(Math.max(v, 1e-12), 1 / tf)); q[1] *= 0.7; const s = q[0] + q[1] + q[2];
+  // Same as display_goals in model.py: big predicted margins are scaled back past 4 goals.
+  let eh = lh, ea = la; const mg = Math.abs(lh - la);
+  if (mg > 4) { const adj = 4 + (mg - 4) * 0.65; if (lh >= la) eh = la + adj; else ea = lh + adj; }
+  return { ph: q[0] / s * 100, pt: q[1] / s * 100, pa: q[2] / s * 100, eh, ea };
+}
+
+/* ---------- strength bar (no percentages shown) ---------- */
+// The model's numbers decide the bar and the words; the numbers themselves are
+// not shown per game. They're graded in aggregate on the Track record page.
+function edgeWord(share) {  // share = favourite's share of decisive outcomes, 0.5..1
+  return share < 0.57 ? 'Even' : share < 0.68 ? 'Slight edge' : share < 0.82 ? 'Clear edge' : 'Strong favourite';
+}
+function strengthBar(ph, pt, pa, A, B, opts = {}) {
+  const left = ph + pt / 2, share = Math.max(ph, pa) / Math.max(ph + pa, 1e-9), word = edgeWord(share);
+  const fav = ph >= pa ? A : B;
+  const label = word === 'Even' ? 'Even matchup' : `${word}: ${shortName(fav)}`;
+  const nameA = opts.homeAway ? `${shortName(A)} (home)` : shortName(A), nameB = opts.homeAway ? `${shortName(B)} (away)` : shortName(B);
+  return `<div class="sbar${opts.small ? ' small' : ''}" role="img" tabindex="0" data-tip="odds" aria-label="${esc(label)}">
+    ${opts.small || opts.noNames ? '' : `<div class="sbar-names"><span>${esc(nameA)}</span><span>${esc(nameB)}</span></div>`}
+    <div class="sbar-track"><i class="sa" style="width:${left.toFixed(1)}%"></i><i class="sb" style="width:${(100 - left).toFixed(1)}%"></i></div>
+    ${opts.small ? '' : `<div class="sbar-label ${word === 'Even' ? '' : ph >= pa ? 'fa' : 'fb'}">${esc(label)}</div>`}
+  </div>`;
+}
+function sideWord(p) {  // a team's own pre-game chance (0-100, ties included) as words
+  if (p == null) return '–';
+  const share = Math.min(Math.max(p / 87, 0), 1);
+  return share >= 0.82 ? 'Strong favourite' : share >= 0.68 ? 'Favourite' : share >= 0.57 ? 'Slight favourite' : share > 0.43 ? 'Even' : share > 0.32 ? 'Slight underdog' : share > 0.18 ? 'Underdog' : 'Big underdog';
+}
+
+/* ---------- share links (live site only: the /s/ pages are built on Netlify) ---------- */
+const CAN_SHARE = !/claude\.ai$|claudeusercontent\.com$|^localhost$|^127\./.test(location.hostname);
+function shareBtn(key, title) {
+  if (!CAN_SHARE) return '';
+  return `<button type="button" class="sharebtn" data-share="${esc(key)}" data-title="${esc(title)}">Share</button>`;
+}
+function toast(msg) {
+  let el = $('#toast'); if (!el) { el = document.createElement('div'); el.id = 'toast'; el.setAttribute('role', 'status'); document.body.appendChild(el); }
+  el.textContent = msg; el.hidden = false; clearTimeout(el._t); el._t = setTimeout(() => { el.hidden = true; }, 2500);
+}
+document.addEventListener('click', async e => {
+  const b = e.target.closest('button[data-share]'); if (!b) return;
+  const url = `${location.origin}/s/${b.dataset.share}.html`;
+  try { if (navigator.share) { await navigator.share({ title: b.dataset.title, url }); return; } } catch (err) { if (err && err.name === 'AbortError') return; }
+  try { await navigator.clipboard.writeText(url); toast('Link copied. Paste it into your team chat.'); }
+  catch (err) { toast(url); }
+});
+
+/* ---------- routing ---------- */
+function parseHash() {
+  const h = location.hash.slice(1);
+  if (GLOBAL_VIEWS.has(h)) return { view: h };
+  const m = h.match(/^(u\d+)-(rankings|week|games|leagues|record|tiers|team|game|match)(?:-(\d+))?(?:-(\d+))?$/);
+  if (!m) return { div: S.div, view: 'rankings' };
+  return { div: m[1], view: m[2], team: m[3] ? +m[3] : null, team2: m[4] ? +m[4] : null };
+}
+function go(h) { if (location.hash !== '#' + h) location.hash = h; else render(); }
+
+function chrome() {
+  $('#levels').innerHTML = LEVELS.map(([k, n]) => `<button type="button" data-level="${k}" aria-pressed="${S.level === k}">${n}</button>`).join('');
+  $('#genders').innerHTML = GENDERS.map(([k, n]) => `<button type="button" data-gender="${k}" aria-pressed="${S.gender === k}">${n}</button>`).join('');
+  $('#divs').innerHTML = S.index.divisions.map(d =>
+    `<button type="button" data-div="${d.id}" aria-pressed="${d.id === S.div}">${d.name}</button>`).join('');
+  $('#views').innerHTML = VIEWS.map(([k, n]) => {
+    const href = GLOBAL_VIEWS.has(k) ? `#${k}` : `#${S.div}-${k}`;
+    const cur = S.view === k || (k === 'rankings' && S.view === 'team') || (k === 'games' && (S.view === 'game' || S.view === 'match'));
+    return `<a href="${href}" ${cur ? 'aria-current="page"' : ''}>${n}</a>`;
+  }).join('');
+  const upd = S.index.dataUpdated ? new Date(S.index.dataUpdated).toLocaleString('en-CA', { dateStyle: 'medium', timeStyle: 'short', timeZone: 'America/Vancouver' }) : '';
+  $('#foot').innerHTML = `RinkRank is an independent site, not affiliated with PCAHA, BC Hockey or Spordle. Game results come from the public PCAHA Spordle data via the open
+    <a href="https://github.com/ecoTokenJames/pcaha-stats" target="_blank" rel="noopener">pcaha-stats</a> project. Data as of ${esc(upd)}. ${esc(S.index.season || '')} season.
+    Team-level numbers only. Official results live at <a href="https://games.pcaha.ca" target="_blank" rel="noopener">games.pcaha.ca</a>.`;
+}
+
+async function render() {
+  const r = parseHash();
+  S.view = r.view; if (r.div) S.div = r.div; S.team = r.team ?? null;
+  if (!S.index.divisions.some(d => d.id === S.div)) S.div = S.index.divisions[0].id;
+  chrome();
+  const app = $('#app');
+  if (S.view === 'method') { app.innerHTML = viewMethod(); window.scrollTo(0, 0); return; }
+  if (S.view === 'search') {
+    app.innerHTML = viewSearchShell(); bindSearch(); window.scrollTo(0, 0);
+    try { await Promise.all(S.index.divisions.map(d => loadDiv(d.id))); } catch (e) { $('#sres').innerHTML = '<p class="note">Some age groups didn\'t load. Refresh to try again.</p>'; return; }
+    runSearch(); return;
+  }
+  if (S.view === 'clubs') {
+    app.innerHTML = '<p class="loading">Loading clubs…</p>';
+    try { S.clubs ||= await getJSON('data/associations.json'); } catch (e) { app.innerHTML = '<p class="loading">Couldn\'t load the club data. Refresh the page to try again.</p>'; return; }
+    app.innerHTML = viewClubs(S.clubs); bindClubs(); window.scrollTo(0, 0); return;
+  }
+  app.innerHTML = '<p class="loading">Loading ratings…</p>';
+  let D;
+  try { D = await loadDiv(S.div); } catch (e) { app.innerHTML = `<p class="loading">Couldn't load the ${esc(S.div.toUpperCase())} data. Refresh the page to try again.</p>`; return; }
+  if (S.view === 'team' && D.teams[S.team]) {
+    const tc = D.teams[S.team].c, lv = levelOf(tc), gd = genderOf(tc);
+    if (lv !== S.level || gd !== S.gender) { S.level = lv; S.gender = gd; store('rr-level', lv); store('rr-gender', gd); chrome(); }
+    app.innerHTML = viewTeam(D, D.teams[S.team]);
+  }
+  else if (S.view === 'games') app.innerHTML = viewGames(D);
+  else if (S.view === 'leagues') app.innerHTML = viewLeagues(D);
+  else if (S.view === 'week') app.innerHTML = viewWeek(D);
+  else if (S.view === 'tiers') app.innerHTML = viewTiers(D);
+  else if (S.view === 'record') app.innerHTML = viewRecord(D);
+  else if (S.view === 'game') {
+    const g = findGame(D, S.team);
+    app.innerHTML = g && D.teams[g.h] && D.teams[g.a] ? viewMatch(D, D.teams[g.h], D.teams[g.a], g) : '<p class="loading">That game isn\'t in the current data. It may have been rescheduled.</p>';
+  }
+  else if (S.view === 'match' && D.teams[S.team] && D.teams[r.team2]) app.innerHTML = viewMatch(D, D.teams[S.team], D.teams[r.team2], null);
+  else app.innerHTML = viewRankings(D);
+  bind(D);
+  fillMine();
+  window.scrollTo(0, 0);
+}
+
+/* ---------- rankings ---------- */
+function levelCats(D) { return D.cats.filter(x => inLevel(x.c)); }
+function currentCat(D) {
+  const cats = levelCats(D).map(c => c.c);
+  if (!cats.includes(S.cat[S.div])) {
+    const pref = cats.find(c => / A$/.test(c)) || cats[0];
+    S.cat[S.div] = pref;
+  }
+  return S.cat[S.div];
+}
+function rankedList(D, cat, region) {
+  let ts = Object.values(D.teams).filter(t => t.c === cat && (region === 'all' || t.rg === region));
+  ts.sort((a, b) => b.net - a.net);
+  const prev = ts.filter(t => t.prevNet != null).slice().sort((a, b) => b.prevNet - a.prevNet);
+  const pr = new Map(prev.map((t, i) => [t.id, i + 1]));
+  return ts.map((t, i) => ({ t, rank: i + 1, move: pr.has(t.id) ? pr.get(t.id) - (i + 1) : null }));
+}
+function moveCell(m) {
+  if (m == null) return '<span class="mv flat">new</span>';
+  if (m === 0) return '<span class="mv flat">–</span>';
+  return m > 0 ? `<span class="mv up">▲${m}</span>` : `<span class="mv down">▼${-m}</span>`;
+}
+// Stored oldest-first; shown newest on the left, matching the game-by-game list.
+function formCell(f) { const r = [...f].reverse(); return `<span class="form" aria-label="Last five, newest first: ${esc(r.join(' '))}">${r.map(x => `<b class="${x}">${x}</b>`).join('')}</span>`; }
+function powerCell(v, scale = 6) {
+  const w = Math.min(Math.abs(v) / scale, 1) * 50;
+  const style = v >= 0 ? `left:50%;width:${w}%` : `right:50%;width:${w}%;background:var(--red)`;
+  return `<span class="power"><span class="num">${sgn(v)}</span><span class="pbar" aria-hidden="true"><i style="${style}"></i></span></span>`;
+}
+const SORTS = {
+  power: r => -r.t.net, off: r => -r.t.off, def: r => r.t.def, sos: r => -(r.t.sos ?? -99),
+  luck: r => -(r.t.ptsPct - r.t.xPtsPct), pp: r => -(r.t.st.pp ?? -1), pk: r => -(r.t.st.pk ?? -1), rec: r => -r.t.ptsPct,
+};
+function viewRankings(D) {
+  if (!levelCats(D).length) return `<p class="eyebrow">${esc(D.div)} ${levelName()} power rankings</p><h1>No teams here</h1><p class="lede">There are no ${esc(D.div)} ${levelName()} teams in this season's data. Try the other switches at the top.</p>`;
+  const cat = currentCat(D);
+  const regionsPresent = new Set(Object.values(D.teams).filter(t => t.c === cat).map(t => t.rg));
+  let rows = rankedList(D, cat, S.region);
+  const all = rows.length;
+  if (S.q) { const q = S.q.toLowerCase(); rows = rows.filter(r => (r.t.n + ' ' + r.t.a).toLowerCase().includes(q)); }
+  rows = rows.slice().sort((a, b) => SORTS[S.sort](a) - SORTS[S.sort](b));
+  const mean = catMean(D, cat);
+  const TIPK = { rec: 'record', power: 'power', off: 'gf', def: 'ga', sos: 'sched', luck: 'luck', pp: 'pp', pk: 'pk' };
+  const th = (k, label, cls = '') => `<th class="${cls}"><button type="button" data-sort="${k}" data-active="${S.sort === k}"${tipAttr(TIPK[k])}>${label}${S.sort === k ? ' ↓' : ''}</button></th>`;
+  return `
+  ${mineSection(false)}
+  <p class="eyebrow">${esc(D.div)} ${levelName()} power rankings</p>
+  <h1>${esc(cat)}</h1>
+  <p class="lede">Every team rated on every game it has played this season, adjusted for who it played. Power is goal differential per game against an average ${esc(cat)} team. Arrows show movement over the last two weeks.</p>
+  <div class="controls">
+    <div class="chips" role="group" aria-label="Category">${levelCats(D).map(c => `<button type="button" class="chip" data-cat="${esc(c.c)}" aria-pressed="${c.c === cat}">${esc(c.c)}<small>${c.n}</small></button>`).join('')}</div>
+  </div>
+  <div class="controls">
+    ${tipSpan('region', '<span class="eyebrow">Show</span>')}<div class="chips" role="group" aria-label="Teams to show">${REGIONS.filter(([k]) => k === 'all' || regionsPresent.has(k)).map(([k, n]) => `<button type="button" class="chip" data-region="${k}" aria-pressed="${S.region === k}">${n}</button>`).join('')}</div>
+    <label><span class="eyebrow" style="margin-right:6px">Find</span><input type="search" id="q" placeholder="Team or association" value="${esc(S.q)}"></label>
+  </div>
+  <div class="tframe"><table>
+    <thead><tr><th class="l">${tipSpan('rank', '#')}</th><th class="l">${tipSpan('move', '±')}</th><th class="l">Team</th>${th('rec', 'Record')}${th('power', 'Power')}
+      ${th('off', 'GF*', 'hide-sm')}${th('def', 'GA*', 'hide-sm')}${th('sos', 'Sched', 'hide-sm')}${th('luck', 'Luck', 'hide-sm')}
+      <th class="l">${tipSpan('form', 'Last 5')}</th>${th('pp', 'PP', 'hide-sm')}${th('pk', 'PK', 'hide-sm')}</tr></thead>
+    <tbody>${rows.map(({ t, rank, move }) => {
+      const luck = t.ptsPct - t.xPtsPct;
+      return `<tr>
+        <td class="l rank">${rank}</td><td class="l">${moveCell(move)}</td>
+        <td class="l team">${starBtn(S.div, t.id)}<a href="#${S.div}-team-${t.id}">${esc(t.n)}</a>${t.gp < 6 ? '<span class="prov" tabindex="0" data-tip="early">EARLY</span>' : ''}<small>${esc(t.lg || t.a)}${t.grp ? ' · ' + esc(t.grp) : ''}${(() => { const f = tierFlag(D, t); return f ? ` · <span class="tierflag" tabindex="0" data-tip="tier">plays like Tier ${f.like}</span>` : ''; })()}</small></td>
+        <td class="num">${t.w}-${t.l}-${t.t}</td>
+        <td>${powerCell(t.net - mean)}</td>
+        <td class="num hide-sm">${fmt(t.off)}</td><td class="num hide-sm">${fmt(t.def)}</td>
+        <td class="num hide-sm">${sgn(t.sos == null ? null : t.sos - mean)}</td>
+        <td class="num hide-sm ${luck >= 10 ? 'up' : luck <= -10 ? 'down' : ''}">${sgn(luck, 0)}</td>
+        <td class="l">${formCell(t.form)}</td>
+        <td class="num hide-sm">${pct(t.st.pp)}</td><td class="num hide-sm">${pct(t.st.pk)}</td></tr>`;
+    }).join('') || `<tr><td colspan="12" class="l">No teams match “${esc(S.q)}”.</td></tr>`}</tbody>
+  </table></div>
+  <p class="note">${rows.length} of ${all} teams. GF* and GA* are goals for and against per game you'd expect against an average ${esc(D.div)} opponent. Sched is the average strength of opponents faced, against the ${esc(cat)} average. Luck is points percentage minus the points percentage the team's play would usually earn. PP and PK are estimated from game sheets. <a href="#method">How it works</a>.</p>`;
+}
+
+/* ---------- team ---------- */
+function scouting(D, t) {
+  const out = [];
+  const peers = Object.values(D.teams).filter(x => x.c === t.c);
+  const avg = f => peers.reduce((s, x) => s + f(x), 0) / peers.length;
+  const p = t.pct || {};
+  const name = t.c;
+  if (p.off >= 80) out.push(['+', `Scores a lot. Expect about ${fmt(t.off)} goals a game against an average opponent, top ${100 - p.off}% in ${name}.`]);
+  else if (p.off <= 25) out.push(['−', `Struggles to score: about ${fmt(t.off)} goals a game against an average opponent, bottom ${Math.max(p.off, 1)}% in ${name}.`]);
+  if (p.def >= 80) out.push(['+', `Hard to score on. Allows about ${fmt(t.def)} a game against an average opponent, top ${100 - p.def}% in ${name}.`]);
+  else if (p.def <= 25) out.push(['−', `Gives up chances: about ${fmt(t.def)} goals against a game, bottom ${Math.max(p.def, 1)}% in ${name}.`]);
+  if (t.st.pp != null && p.pp >= 75) out.push(['+', `Dangerous power play, scoring on about ${t.st.pp}% of chances (${t.st.ppgf} power-play goals).`]);
+  if (t.st.pp != null && p.pp <= 25) out.push(['−', `Power play has been quiet: ${t.st.ppgf} goals on about ${t.st.ppo} chances.`]);
+  if (t.st.pk != null && p.pk >= 75) out.push(['+', `Strong penalty kill, about ${t.st.pk}% of penalties killed.`]);
+  if (t.st.pk != null && p.pk <= 25) out.push(['−', `Penalty kill is a weak spot: ${t.st.ppga} power-play goals allowed on about ${t.st.tsh} penalties.`]);
+  const ppg = t.st.pen / Math.max(t.sheets, 1), ppgAvg = avg(x => x.st.pen / Math.max(x.sheets, 1));
+  if (ppg >= ppgAvg * 1.35) out.push(['−', `Takes a lot of penalties: ${fmt(ppg)} a game against a ${name} average of ${fmt(ppgAvg)}.`]);
+  else if (ppg <= ppgAvg * 0.65) out.push(['+', `Disciplined: ${fmt(ppg)} penalties a game against a ${name} average of ${fmt(ppgAvg)}.`]);
+  const d3 = t.per['3'][0] - t.per['3'][1], d1 = t.per['1'][0] - t.per['1'][1];
+  if (t.sheets >= 5 && d3 - d1 >= 5) out.push(['+', `Finishes strong: ${sgn(d3, 0)} in third periods against ${sgn(d1, 0)} in firsts.`]);
+  if (t.sheets >= 5 && d1 - d3 >= 5) out.push(['−', `Fades late: ${sgn(d1, 0)} in first periods but ${sgn(d3, 0)} in thirds.`]);
+  const luck = t.ptsPct - t.xPtsPct;
+  if (luck >= 12) out.push(['i', `The record is ahead of the play (${sgn(luck, 0)} points percentage). Close results have been going their way, which tends not to last.`]);
+  if (luck <= -12) out.push(['i', `Better than the record suggests (${sgn(luck, 0)}). The goal differential points to more wins coming.`]);
+  if (t.depth.top3 != null && t.depth.top3 >= 65) out.push(['i', `Leans on a few shooters: the top three scorers have ${t.depth.top3}% of the goals. Shut them down and the offence dries up.`]);
+  if (t.depth.top3 != null && t.depth.top3 <= 42 && t.depth.scorers >= 9) out.push(['+', `Scoring comes from everywhere: ${t.depth.scorers} different players have scored, and no top three carries the load.`]);
+  if (t.formPerf != null && t.formPerf >= 1.2) out.push(['+', `Playing above its rating lately, ${sgn(t.formPerf)} goals a game better than expected over the last five.`]);
+  if (t.formPerf != null && t.formPerf <= -1.2) out.push(['−', `Cooling off: ${sgn(t.formPerf)} goals a game below expectation over the last five.`]);
+  if (t.sos != null && p.sos >= 85) out.push(['i', `Has faced one of the toughest schedules in ${name}, so the record undersells them.`]);
+  if (t.sos != null && p.sos <= 15) out.push(['i', `Has had one of the easier schedules in ${name}. Treat the record with some caution.`]);
+  if (!out.length) out.push(['i', 'No standout strengths or weaknesses yet. A balanced team, or too few games to tell.']);
+  return out;
+}
+function periodChart(t) {
+  const per = ['1', '2', '3']; const mx = Math.max(1, ...per.flatMap(p => t.per[p]));
+  const W = 300, rowH = 34, H = per.length * rowH + 18, mid = 150, sc = (mid - 30) / mx;
+  return `<svg viewBox="0 0 ${W} ${H}" width="100%" role="img" aria-label="Goals for and against by period">
+    ${per.map((p, i) => { const y = 8 + i * rowH, f = t.per[p][0], a = t.per[p][1];
+      return `<text x="${mid}" y="${y + 11}" text-anchor="middle" fill="var(--muted)" style="font:11px var(--mono)">P${p}</text>
+        <rect x="${mid - 14 - a * sc}" y="${y + 16}" width="${a * sc}" height="12" rx="2" fill="var(--red)"/>
+        <rect x="${mid + 14}" y="${y + 16}" width="${f * sc}" height="12" rx="2" fill="var(--blue)"/>
+        <text x="${mid - 18 - a * sc}" y="${y + 26}" text-anchor="end" fill="var(--ink)" style="font:12px var(--mono)">${a}</text>
+        <text x="${mid + 18 + f * sc}" y="${y + 26}" fill="var(--ink)" style="font:12px var(--mono)">${f}</text>`; }).join('')}
+  </svg><div class="oddslbl"><span>Against</span><span>For</span></div>`;
+}
+function rec(a) { return `${a[0]}-${a[1]}-${a[2]}`; }
+function viewTeam(D, t) {
+  const list = rankedList(D, t.c, 'all'); const me = list.find(r => r.t.id === t.id);
+  const pcahaList = rankedList(D, t.c, t.rg); const meR = pcahaList.find(r => r.t.id === t.id);
+  const mean = catMean(D, t.c); const pw = t.net - mean;
+  const up = D.upcoming.filter(g => g.h === t.id || g.a === t.id);
+  const opp = id => D.teams[id];
+  const report = scouting(D, t);
+  const rgName = { pcaha: 'PCAHA', island: 'Island', visitor: 'visiting' }[t.rg];
+  return `
+  <p class="eyebrow"><a href="#${S.div}-rankings" data-cat-link="${esc(t.c)}">${esc(t.c)} rankings</a></p>
+  <h1>${esc(t.n)} ${starBtn(S.div, t.id, true)} ${shareBtn(`${S.div}-team-${t.id}`, t.n)}</h1>
+  ${(() => { const f = tierFlag(D, t); return f ? `<p><a class="tierbadge" href="#${S.div}-tiers" data-tier-link="${esc(t.c)}" data-tip="tier">Placed in Tier ${f.tier}, playing like Tier ${f.like}</a></p>` : ''; })()}
+  <p class="lede">${esc(t.lg || '')}${t.grp ? ' · ' + esc(t.grp) : ''}. Ranked <b>${meR.rank} of ${pcahaList.length}</b> ${rgName} teams in ${esc(t.c)}${me.rank !== meR.rank ? ` (${me.rank} of ${list.length} counting all teams)` : ''}.</p>
+  <div class="tiles">
+    <div class="tile"><div class="k" tabindex="0" data-tip="power">Power</div><div class="v num">${sgn(pw)}</div><div class="s">goals a game vs an average ${esc(t.c)} team</div></div>
+    <div class="tile"><div class="k" tabindex="0" data-tip="record">Record</div><div class="v num">${t.w}-${t.l}-${t.t}</div><div class="s">${t.gf} for, ${t.ga} against</div></div>
+    <div class="tile"><div class="k" tabindex="0" data-tip="offence">Offence</div><div class="v num">${fmt(t.off)}</div><div class="s">expected goals for a game</div></div>
+    <div class="tile"><div class="k" tabindex="0" data-tip="defence">Defence</div><div class="v num">${fmt(t.def)}</div><div class="s">expected goals against a game</div></div>
+    <div class="tile"><div class="k" tabindex="0" data-tip="sched">Schedule so far</div><div class="v num">${sgn(t.sos == null ? null : t.sos - mean)}</div><div class="s">${t.pct && t.pct.sos != null ? `tougher than ${t.pct.sos}% of the category` : ''}</div></div>
+    <div class="tile"><div class="k" tabindex="0" data-tip="luck">Luck</div><div class="v num">${sgn(t.ptsPct - t.xPtsPct, 0)}</div><div class="s">${t.ptsPct}% of points vs ${t.xPtsPct}% expected</div></div>
+  </div>
+  <section class="panel" style="margin-bottom:18px"><h2 style="margin-top:0">${tipSpan('hist', 'Power by week')}</h2>${histChart(t)}</section>
+  <div class="grid2">
+    <section class="panel"><h2 style="margin-top:0">Scouting report</h2><ul class="report">${report.map(([tag, txt]) => `<li data-tag="${tag}">${esc(txt)}</li>`).join('')}</ul></section>
+    <section class="panel"><h2 style="margin-top:0">Goals by period</h2>${t.sheets ? periodChart(t) : '<p class="note">No game sheets yet.</p>'}
+      <h3 style="margin-top:14px">Special teams <span class="note">(estimated)</span></h3>
+      <div class="tframe"><table><tbody>
+        <tr><td class="l">${tipSpan('pp', 'Power play')}</td><td class="num">${pct(t.st.pp)}</td><td class="num">${t.st.ppgf} goals / ~${t.st.ppo} chances</td></tr>
+        <tr><td class="l">${tipSpan('pk', 'Penalty kill')}</td><td class="num">${pct(t.st.pk)}</td><td class="num">${t.st.ppga} allowed / ~${t.st.tsh} penalties</td></tr>
+        <tr><td class="l">Short-handed goals</td><td class="num">${t.st.shgf}</td><td class="num">${t.st.shga} against</td></tr>
+      </tbody></table></div>
+    </section>
+  </div>
+  <h2>Splits</h2>
+  <div class="tframe"><table><tbody>
+    <tr><td class="l">Home</td><td class="num">${rec(t.home)}</td><td class="l">Away</td><td class="num">${rec(t.away)}</td></tr>
+    <tr><td class="l">${tipSpan('splits', 'One-goal games')}</td><td class="num">${rec(t.one)}</td><td class="l">Won / lost by 5+</td><td class="num">${t.blow[0]} / ${t.blow[1]}</td></tr>
+    <tr><td class="l">Different goal scorers</td><td class="num">${t.depth.scorers}</td><td class="l">${tipSpan('depth', 'Goals from top three')}</td><td class="num">${pct(t.depth.top3)}</td></tr>
+  </tbody></table></div>
+  ${up.length ? `<h2>Next games</h2><div class="games">${up.slice(0, 6).map(g => gameCard(D, g, t.id)).join('')}</div>` : ''}
+  <h2>Matchup check</h2>
+  <div class="panel"><div class="controls" style="margin:0 0 10px"><label for="vs" class="eyebrow">Against</label>
+    <select id="vs"><option value="">Pick any ${esc(D.div)} team…</option>${Object.values(D.teams).filter(x => x.id !== t.id).sort((a, b) => a.n.localeCompare(b.n)).map(x => `<option value="${x.id}">${esc(x.n)}</option>`).join('')}</select></div>
+    <div id="vsout" class="note">Pick an opponent to see the chances on neutral ice.</div></div>
+  <h2>Game by game</h2>
+  <div class="tframe"><table>
+    <thead><tr><th class="l">Date</th><th class="l">Opponent</th><th>Score</th><th class="l">${tipSpan('winchance', 'Going in')}</th><th>${tipSpan('vsexp', 'Vs expected')}</th><th class="l hide-sm">Event</th></tr></thead>
+    <tbody>${t.log.slice().reverse().map(g => { const o = opp(g.o);
+      return `<tr><td class="l num">${esc(g.d.slice(5))}</td>
+        <td class="l team">${g.h ? '' : '@ '}${o ? `<a href="#${S.div}-team-${o.id}">${esc(o.n)}</a>` : 'Unknown'}</td>
+        <td class="num"><b class="${g.r === 'W' ? 'up' : g.r === 'L' ? 'down' : ''}">${g.r}</b> ${g.gf}-${g.ga}${g.x ? ' ' + esc(g.x) : ''}</td>
+        <td class="l${g.q == null ? ' note' : ''}">${sideWord(g.q ?? g.p)}</td>
+        <td class="num ${g.pf >= 1.5 ? 'up' : g.pf <= -1.5 ? 'down' : ''}">${sgn(g.pf)}</td>
+        <td class="l hide-sm note">${esc((D.schedules[g.s] || {}).n || '')}</td></tr>`; }).join('')}</tbody>
+  </table></div>
+  <p class="note">Win chance is what the model said before each game. "Vs expected" uses today's ratings, so it shows how each result compares with what we now know about both teams.</p>`;
+}
+
+/* ---------- games ---------- */
+function gameCard(D, g, focus) {
+  const h = D.teams[g.h], a = D.teams[g.a];
+  const watch = isWatch(D, g);
+  return `<article class="game${watch ? ' watch' : ''}">
+    <div class="meta"><span>${esc(dateLabel(g.d))} ${esc(timeLabel(g.st))}</span><span>${watch ? '<span class="tag" tabindex="0" data-tip="watch">Game to watch</span>' : esc((D.schedules[g.s] || {}).n || '')}</span></div>
+    <div class="side"><a href="#${S.div}-team-${h.id}"${focus === h.id ? ' style="color:var(--blue)"' : ''}>${esc(h.n)}</a><span class="note">home</span></div>
+    <div class="side"><a href="#${S.div}-team-${a.id}"${focus === a.id ? ' style="color:var(--blue)"' : ''}>${esc(a.n)}</a><span class="note">away</span></div>
+    ${strengthBar(g.ph, g.pt, g.pa, h, a, { noNames: true })}
+    <div class="meta"><span>${esc(g.ar || '')}</span><a href="#${S.div}-game-${g.g}" class="preview">Scouting report →</a></div>
+  </article>`;
+}
+function isWatch(D, g) {
+  const h = D.teams[g.h], a = D.teams[g.a];
+  if (!h || !a || h.c !== a.c) return false;
+  const close = Math.abs(g.ph - g.pa) <= 20;
+  return close && h.rank <= Math.ceil(h.of / 4) && a.rank <= Math.ceil(a.of / 4);
+}
+function viewGames(D) {
+  const cats = ['all', ...levelCats(D).map(c => c.c)];
+  if (!cats.includes(S.gamesCat)) S.gamesCat = 'all';
+  const inCat = g => (inLevel(D.teams[g.h].c) || inLevel(D.teams[g.a].c)) && (S.gamesCat === 'all' || D.teams[g.h].c === S.gamesCat || D.teams[g.a].c === S.gamesCat);
+  const games = D.upcoming.filter(inCat);
+  const byDay = {}; games.forEach(g => (byDay[g.d] ||= []).push(g));
+  const ups = D.upsets.filter(inCat).slice(0, 12);
+  return `
+  <p class="eyebrow">${esc(D.div)} · next two weeks</p>
+  <h1>Upcoming games</h1>
+  <p class="lede">How the two teams compare going into every scheduled ${esc(D.div)} ${levelName()} game. The longer side of the bar has the edge. Close games between two top-quarter teams are flagged as games to watch.</p>
+  <div class="controls"><div class="chips" role="group" aria-label="Category">${cats.map(c => `<button type="button" class="chip" data-gcat="${esc(c)}" aria-pressed="${c === S.gamesCat}">${c === 'all' ? 'All' : esc(c)}</button>`).join('')}</div></div>
+  ${games.length ? `<div class="days">${Object.entries(byDay).map(([d, gs]) => `<section class="day"><h3>${esc(dateLabel(d))}</h3><div class="games">${gs.map(g => gameCard(D, g)).join('')}</div></section>`).join('')}</div>`
+    : '<p class="note">No games scheduled in the next two weeks for this selection.</p>'}
+  <h2>Upsets, last 30 days</h2>
+  <p class="note">Results where the winner was a clear underdog going in.</p>
+  <div class="tframe"><table><thead><tr><th class="l">Date</th><th class="l">Winner</th><th class="l">Loser</th><th>Score</th><th class="l">${tipSpan('upset', 'Winner going in')}</th></tr></thead>
+  <tbody>${ups.map(u => { const hw = u.hs > u.as; const w = D.teams[hw ? u.h : u.a], l = D.teams[hw ? u.a : u.h];
+    return `<tr><td class="l num">${esc(u.d.slice(5))}</td><td class="l team"><a href="#${S.div}-team-${w.id}">${esc(w.n)}</a></td><td class="l team"><a href="#${S.div}-team-${l.id}">${esc(l.n)}</a></td><td class="num">${Math.max(u.hs, u.as)}-${Math.min(u.hs, u.as)}</td><td class="l">${sideWord(u.p)}</td></tr>`; }).join('') || '<tr><td class="l" colspan="5">No big upsets in this selection.</td></tr>'}</tbody></table></div>`;
+}
+
+/* ---------- leagues ---------- */
+function viewLeagues(D) {
+  const KINDS = [['League', 'Leagues'], ['Playoffs', 'Playoffs'], ['Tournament', 'Tournaments']];
+  const lp = D.projections.filter(p => inLevel(p.cat));
+  const have = KINDS.filter(([k]) => lp.some(p => p.kind === k));
+  if (!have.some(([k]) => k === S.pkind)) S.pkind = have.length ? have[0][0] : 'League';
+  const ps = lp.filter(p => p.kind === S.pkind);
+  const tourn = S.pkind === 'Tournament';
+  return `
+  <p class="eyebrow">${esc(D.div)} ${levelName()} · projections</p>
+  <h1>${tourn ? 'Tournament odds' : S.pkind === 'Playoffs' ? 'Playoff odds' : 'League projections'}</h1>
+  <p class="lede">The remaining games are played out 4,000 times using the current ratings, with each team's strength allowed to vary to reflect how sure we are of it. ${tourn ? 'Pool win is how often a team topped its pool. Tournament brackets aren\'t in the public data, so finals aren\'t simulated.' : 'Projected points are the average finish; first-place and top-half chances count how often each team got there.'}</p>
+  ${have.length > 1 ? `<div class="controls"><div class="chips" role="group" aria-label="Type">${have.map(([k, n]) => `<button type="button" class="chip" data-pkind="${k}" aria-pressed="${k === S.pkind}">${n}</button>`).join('')}</div></div>` : ''}
+  ${ps.length ? ps.map(p => `
+    <h2>${esc(p.name)}</h2>
+    <p class="note">${p.played} games played, ${p.remaining} to go${p.start ? `, ${esc(p.start)} to ${esc(p.end)}` : ''}. Points: ${p.ps.w} for a win, ${p.ps.t} for a tie, ${p.ps.l} for a loss${p.ps.fit === 'exact' ? '' : p.ps.fit === 'assumed' ? ' (assumed until results come in)' : ' (approximate; this league awards some points by period)'}.</p>
+    ${p.groups.map(g => `${g.name ? `<h3>${esc(g.name)}</h3>` : ''}
+    <div class="tframe" style="margin-bottom:14px"><table><thead><tr><th class="l">Team</th><th>${tipSpan('pts', 'Pts')}</th><th>${tipSpan('gp', 'GP')}</th><th class="hide-sm">${tipSpan('left', 'Left')}</th><th>${tipSpan('projected', 'Projected')}</th><th>${tourn ? tipSpan('poolwin', 'Pool win') : tipSpan('p1', '1st')}</th><th>${tipSpan('top', 'Top half')}</th><th class="hide-sm">${tipSpan('avgfin', 'Avg finish')}</th><th class="l">${tipSpan('status', 'Status')}</th></tr></thead>
+    <tbody>${g.rows.map(r => { const t = D.teams[r.id];
+      return `<tr><td class="l team">${t ? `<a href="#${S.div}-team-${t.id}">${esc(t.n)}</a>` : r.id}</td><td class="num">${r.pts}</td><td class="num">${r.gp}</td><td class="num hide-sm">${r.left}</td><td class="num"><b>${fmt(r.xPts)}</b></td><td class="num">${pct(r.p1)}</td><td class="num">${pct(r.top)}</td><td class="num hide-sm">${fmt(r.avg)}</td><td class="l status">${r.status ? `<span class="${/Clinched|clinched/.test(r.status) ? 'up' : /Out of/.test(r.status) ? 'down' : ''}">${esc(r.status)}</span>` : ''}</td></tr>`; }).join('')}</tbody></table></div>`).join('')}
+  `).join('') : '<p class="note">Nothing with games left in this age group yet. Rep leagues appear here once PCAHA publishes the season schedule.</p>'}`;
+}
+
+/* ---------- method ---------- */
+function viewMethod() {
+  const ev = S.index.evaluation;
+  const cal = ev ? calChart(ev.calibration) : '';
+  const pc = v => (v * 100).toFixed(1) + '%';
+  const segTable = (obj, label) => `<div class="tframe" style="margin:8px 0 14px"><table><thead><tr><th class="l">${label}</th><th>Games</th><th>Winner called</th></tr></thead><tbody>${Object.entries(obj).map(([k, v]) => `<tr><td class="l">${esc(k)}</td><td class="num">${v.games.toLocaleString()}</td><td class="num">${pc(v.accuracy)}</td></tr>`).join('')}</tbody></table></div>`;
+  return `
+  <p class="eyebrow">Methodology</p>
+  <h1>How the ratings work</h1>
+  <div style="max-width:70ch">
+  <p>Standings tell you who has won. They don't tell you who they beat, or whether a 6-0 record came against the top of the table or the bottom. RinkRank rates every team on every game it has played, including placement rounds, league games and tournaments, so teams in different leagues and tiers can be compared through the opponents they share.</p>
+  <h2>The model</h2>
+  <p>Each team gets an offence rating and a defence rating. A team's expected goals in a game depend on its offence and the opponent's defence. The ratings are the values that best explain every score this season. Scores are capped at nine goals per side, so a 15-0 mismatch doesn't count more than a 9-0.</p>
+  <p>Each team starts the season from two clues, weighted equally. One is last season's rating for the same slot: same association, age group and team number, such as Vancouver Thunderbird U13 A2. The other follows the players: the average standing of the teams this season's players played for last year. A player moving up from U11 counts at their old team's standing in U11, so a kid from a top-10% U11 team counts as top-10% material. This season's results then take over, and after about ten games the starting point barely matters.</p>
+  <p>Why both? In a normal year clubs move players through the same slots, and the slot alone is slightly better. But when programs change, following the players catches it. In 2026-27 the new U13 AA league drew top players away from several associations' A teams. Over each U13 A team's first five games this season, following the players called ${S.index.evaluation && S.index.evaluation.u13aThisSeason ? Math.round(S.index.evaluation.u13aThisSeason.blend * 100) : 64}% of winners against ${S.index.evaluation && S.index.evaluation.u13aThisSeason ? Math.round(S.index.evaluation.u13aThisSeason.slot * 100) : 61}% for the slot alone. The 50/50 mix is the only version that did as well or better in every season tested.</p>
+  <p>Power is the goal differential per game you'd expect against an average team in the same category. Win, tie and loss chances come from the two teams' expected goals, with two corrections found by testing. The raw odds are too confident, especially when a team has played only a few games, so they're flattened. A lot in a team's first game, less as games come in, and only a little after about 15 games. And the raw model expects too many ties, so tie chances are trimmed. Expected scores are trimmed too in big mismatches, where the favourite tends to ease off: past a four-goal margin, the shown margin is scaled back to match what actually happened in three seasons of games.</p>
+  <p>On the site, game odds appear as a strength bar with plain words (Even, Slight edge, Clear edge, Strong favourite) rather than percentages. These are kids' games, and "a 4% chance" on a public page about a team of eleven-year-olds isn't something we want to publish. The numbers behind the bars are the same ones graded below.</p>
+  <h2>Does it work?</h2>
+  ${ev ? `<p>We replayed three full seasons, ${ev.games.toLocaleString()} games in all. Each week the model was fitted only on games already played and asked to call the next week. Each season was graded with settings fitted on the other two, so no season marks its own homework.</p>
+  <div class="tframe" style="margin:8px 0 14px"><table><thead><tr><th class="l">Season</th><th>Games</th><th>Winner called</th><th class="hide-sm">${tipSpan('logloss', 'Odds error')}</th><th class="hide-sm">Before tuning</th></tr></thead>
+  <tbody>${ev.seasons.map(x => `<tr><td class="l">${esc(x.season)}</td><td class="num">${x.games.toLocaleString()}</td><td class="num">${pc(x.accuracy)}</td><td class="num hide-sm">${x.logLoss.toFixed(3)}</td><td class="num hide-sm">${x.beforeLogLoss.toFixed(3)}</td></tr>`).join('')}</tbody></table></div>
+  <p>The model calls about ${Math.round(ev.accuracy * 100)}% of winners across every game, including teams' first games of the season, and about 72% once both teams have three games in. On ${'2025-26'}, picking the team with the better record got about ${Math.round(ev.baselineRecord2025 * 100)}%. Odds error (lower is better) measures how good the percentages are, not just the picks; tuning cut it by 4 to 5% in every season.</p>
+  <h3>When it says 70%…</h3>
+  <p>If the odds are honest, teams given 70% win about 70% of the time. Across all three seasons:</p>${cal}
+  <h3>Where it's stronger and weaker</h3>
+  <p>Games are harder to call as players get older, and a team's first game of the season is close to a coin flip, which is why those odds are kept modest. Tournaments, with teams from outside PCAHA, are harder than league games.</p>
+  <div class="grid2">${segTable(ev.byAge, 'Age group')}${segTable(ev.byGames, 'Fewer games played')}</div>
+  <div class="grid2">${segTable(ev.byType, 'Game type')}${segTable(ev.byLevel, 'Level')}</div>` : ''}
+  <h2>Keeping score</h2>
+  <p>The <a href="#${S.div}-record">Track record</a> page grades every game this season against the odds the model gave before it was played. Before launch those odds are replayed, with the model refitted on only the games from earlier days. From launch on, the odds shown on the site at the last update before each game are saved and never changed afterwards, so the record can't be quietly improved.</p>
+  <h2>Tiers and clubs</h2>
+  <p><b>Tier check</b> lines up every tiered PCAHA team by Power and flags teams sitting closer to another tier's middle team than to their own. <b>Club report cards</b> average each association's team percentiles within their own categories, so a club isn't rewarded for having more A teams than C teams.</p>
+  <h2>Other numbers</h2>
+  <p><b>Schedule strength</b> is the average power of the opponents a team has played. <b>Luck</b> compares a team's points percentage with the points percentage its game-by-game chances would usually earn; big gaps tend to close. <b>Power play and penalty kill</b> are estimated from game sheets: power-play chances are the opponent's minor, major and match penalties, which slightly overcounts when penalties are coincidental. <b>Projections</b> play out each league's remaining schedule thousands of times.</p>
+  <h2>What every number means</h2>
+  <p class="note">The same explanations appear when you hover over (or tap) any underlined label on the site.</p>
+  <dl class="gloss">${['level','gender','power','gf','ga','record','move','hist','sched','luck','form','pp','pk','early','region','tier','cpct','topq','odds','watch','winchance','vsexp','upset','projected','p1','top','avgfin','poolwin','status','trend','picked','baseline','confident','calib','source','splits','depth'].map(k => `<dt>${esc(GLOSS[k][0])}</dt><dd>${esc(GLOSS[k][1])}</dd>`).join('')}</dl>
+  <h2>What we don't publish</h2>
+  <p>These are kids' games. RinkRank shows team numbers only. Player names and individual stats stay on the official PCAHA site. The ratings use player IDs from the public data for one thing: linking each team to the teams its players came from last season. No player information is shown, stored or shared by this site.</p>
+  <h2>Limits</h2>
+  <p>Early in the season ratings move a lot, and teams with fewer than six games are marked EARLY. Island and visiting tournament teams are rated through the few games that link them to PCAHA teams, so treat cross-region comparisons with care. Rosters change, players get hurt, and goalies matter more than any rating can show.</p>
+  </div>`;
+}
+function calChart(rows) {
+  const W = 420, H = 260, L = 46, B = 36, T = 10, R = 12, x = v => L + (v - .5) / .5 * (W - L - R), y = v => H - B - (v - .5) / .5 * (H - B - T);
+  const ticks = [.5, .6, .7, .8, .9, 1];
+  return `<svg class="cal" viewBox="0 0 ${W} ${H}" role="img" aria-label="Predicted against actual win rate">
+    ${ticks.map(v => `<line x1="${L}" x2="${W - R}" y1="${y(v)}" y2="${y(v)}" stroke="var(--line)"/><text x="${L - 6}" y="${y(v) + 4}" text-anchor="end">${v * 100}%</text><text x="${x(v)}" y="${H - B + 16}" text-anchor="middle">${v * 100}%</text>`).join('')}
+    <line x1="${x(.5)}" y1="${y(.5)}" x2="${x(1)}" y2="${y(1)}" stroke="var(--muted)" stroke-dasharray="4 4"/>
+    <polyline fill="none" stroke="var(--blue)" stroke-width="2.5" points="${rows.map(r => `${x(r.predicted)},${y(r.actual)}`).join(' ')}"/>
+    ${rows.map(r => `<circle cx="${x(r.predicted)}" cy="${y(r.actual)}" r="4" fill="var(--blue)"><title>${Math.round(r.predicted * 100)}% predicted, ${Math.round(r.actual * 100)}% won, ${r.games} games</title></circle>`).join('')}
+    <text x="${(L + W - R) / 2}" y="${H - 4}" text-anchor="middle">Favourite's predicted chance</text>
+    <text x="12" y="${(T + H - B) / 2}" text-anchor="middle" transform="rotate(-90 12 ${(T + H - B) / 2})">How often they won</text>
+  </svg>`;
+}
+
+/* ---------- my teams (saved on this device only) ---------- */
+function stars() { try { return JSON.parse(store('rr-stars') || '[]'); } catch (e) { return []; } }
+function isStar(div, id) { return stars().includes(`${div}:${id}`); }
+function toggleStar(key) { const s = stars(); store('rr-stars', JSON.stringify(s.includes(key) ? s.filter(x => x !== key) : [...s, key])); }
+function starBtn(div, id, big) {
+  const on = isStar(div, id), lbl = on ? 'Remove from my teams' : 'Add to my teams';
+  return `<button type="button" class="star${big ? ' big' : ''}" data-star="${div}:${id}" aria-pressed="${on}" aria-label="${lbl}" title="${lbl}">${on ? '★' : '☆'}</button>`;
+}
+const moveText = m => m == null ? '' : m > 0 ? `▲${m}` : m < 0 ? `▼${-m}` : '';
+function mineSection(hintIfEmpty) {
+  if (!stars().length && !hintIfEmpty) return '';
+  return `<section class="mine-wrap"><h2 style="margin-top:0">My teams</h2><div id="mine"><p class="note">${stars().length ? 'Loading…' : 'Tap ☆ beside any team to keep it here. Saved on this device only.'}</p></div></section>`;
+}
+async function fillMine() {
+  if (!$('#mine') || !stars().length) return;
+  const cards = [];
+  for (const k of stars()) {
+    const [div, id] = k.split(':'); let D;
+    try { D = await loadDiv(div); } catch (e) { continue; }
+    const t = D.teams[id]; if (t) cards.push(mineCard(D, div, t));
+  }
+  const el = $('#mine'); if (el) el.innerHTML = `<div class="mine">${cards.join('') || '<p class="note">Your saved teams have no games this season.</p>'}</div>`;
+}
+function mineCard(D, div, t) {
+  const r = rankedList(D, t.c, t.rg).find(x => x.t.id === t.id);
+  const last = t.log[t.log.length - 1];
+  const next = D.upcoming.find(g => g.h === t.id || g.a === t.id);
+  let nx = '';
+  if (next) { const home = next.h === t.id, o = D.teams[home ? next.a : next.h]; nx = `Next ${esc(dateLabel(next.d))} ${home ? 'vs' : '@'} ${esc(o.n)}: <b>${sideWord(home ? next.ph : next.pa)}</b>`; }
+  return `<a class="minecard" href="#${div}-team-${t.id}">
+    <span class="eyebrow">${esc(t.c)} · #${r ? r.rank : '–'} <span class="${r && r.move > 0 ? 'up' : r && r.move < 0 ? 'down' : ''}">${moveText(r && r.move)}</span></span>
+    <b>${esc(t.n)}</b>
+    <span class="num">${sgn(power(D, t))} power · ${t.w}-${t.l}-${t.t}</span>
+    ${last ? `<span>Last: <b class="${last.r === 'W' ? 'up' : last.r === 'L' ? 'down' : ''}">${last.r}</b> ${last.gf}-${last.ga} ${last.h ? 'vs' : '@'} ${esc((D.teams[last.o] || {}).n || '')}</span>` : ''}
+    ${nx ? `<span>${nx}</span>` : ''}</a>`;
+}
+
+/* ---------- rating history chart ---------- */
+const shortDate = d => new Date(d + 'T12:00:00').toLocaleDateString('en-CA', { month: 'short', day: 'numeric' });
+function niceStep(range) { for (const s of [0.5, 1, 2, 2.5, 5, 10]) if (range / s <= 6) return s; return 20; }
+function histChart(t) {
+  const h = t.hist;
+  if (h.length < 2) return '<p class="note">The chart starts once a team has two weeks of results.</p>';
+  const W = 600, H = 220, L = 38, R = 46, T = 22, B = 30;
+  const vs = h.map(p => p[1]); let lo = Math.min(0, ...vs), hi = Math.max(0, ...vs);
+  const pad = Math.max(0.5, (hi - lo) * 0.15); lo -= pad; hi += pad;
+  const step = niceStep(hi - lo), ticks = [];
+  for (let v = Math.ceil(lo / step) * step; v <= hi; v += step) ticks.push(+v.toFixed(2));
+  const x = i => L + i * (W - L - R) / (h.length - 1), y = v => T + (hi - v) / (hi - lo) * (H - T - B);
+  const pts = h.map((p, i) => `${x(i).toFixed(1)},${y(p[1]).toFixed(1)}`).join(' ');
+  const every = Math.ceil(h.length / 7);
+  return `<svg viewBox="0 0 ${W} ${H}" width="100%" role="img" aria-label="Power by week, from ${sgn(h[0][1])} to ${sgn(h[h.length - 1][1])}">
+    ${ticks.map(v => `<line x1="${L}" x2="${W - R}" y1="${y(v)}" y2="${y(v)}" stroke="var(--line)" ${v === 0 ? 'stroke-width="1.5" stroke-dasharray="5 4"' : ''}/><text x="${L - 6}" y="${y(v) + 4}" text-anchor="end" fill="var(--muted)" style="font:11px var(--mono)">${sgn(v, step < 1 ? 1 : 0)}</text>`).join('')}
+    <text x="${W - R + 4}" y="${y(0) + 4}" fill="var(--muted)" style="font:10px var(--mono)">avg</text>
+    <polygon points="${x(0)},${y(0)} ${pts} ${x(h.length - 1)},${y(0)}" fill="var(--blue)" opacity=".12"/>
+    <polyline points="${pts}" fill="none" stroke="var(--blue)" stroke-width="2.5" stroke-linejoin="round"/>
+    ${h.map((p, i) => `<circle cx="${x(i)}" cy="${y(p[1])}" r="${i === h.length - 1 ? 5 : 3.5}" fill="${i === h.length - 1 ? 'var(--red)' : 'var(--blue)'}"><title>${shortDate(p[0])}: ${sgn(p[1])} power, ranked ${p[2]}</title></circle>`).join('')}
+    ${h.map((p, i) => (i % every === 0 || i === h.length - 1) ? `<text x="${x(i)}" y="${H - 8}" text-anchor="middle" fill="var(--muted)" style="font:11px var(--mono)">${shortDate(p[0])}</text>` : '').join('')}
+    <text x="${x(0)}" y="${y(h[0][1]) - 9}" text-anchor="middle" fill="var(--ink)" style="font:600 12px var(--mono)">#${h[0][2]}</text>
+    <text x="${x(h.length - 1)}" y="${y(h[h.length - 1][1]) - 10}" text-anchor="middle" fill="var(--ink)" style="font:600 12px var(--mono)">#${h[h.length - 1][2]}</text>
+  </svg>`;
+}
+
+/* ---------- tier check ---------- */
+const tierCache = new Map();
+function median(a) { const s = a.slice().sort((p, q) => p - q), m = s.length >> 1; return s.length % 2 ? s[m] : (s[m - 1] + s[m]) / 2; }
+function tierInfo(D, cat) {
+  const key = D.div + cat; if (tierCache.has(key)) return tierCache.get(key);
+  const ts = Object.values(D.teams).filter(t => t.c === cat && t.rg === 'pcaha' && t.tier);
+  const by = {}; ts.forEach(t => (by[t.tier] ||= []).push(t));
+  const tiers = Object.keys(by).map(Number).sort().map(k => {
+    const p = by[k].map(t => power(D, t));
+    return { tier: k, teams: by[k], med: median(p), lo: Math.min(...p), hi: Math.max(...p) };
+  }).filter(x => x.teams.length >= 3);
+  const flags = [];
+  if (tiers.length >= 2) for (const tr of tiers) for (const t of tr.teams) {
+    if (t.gp < 6) continue;
+    const p = power(D, t);
+    const near = tiers.reduce((b, x) => Math.abs(p - x.med) < Math.abs(p - b.med) ? x : b, tr);
+    if (near.tier !== tr.tier && Math.abs(p - tr.med) - Math.abs(p - near.med) > 1.0) flags.push({ t, tier: tr.tier, like: near.tier, p });
+  }
+  const res = { tiers, flags }; tierCache.set(key, res); return res;
+}
+function tierFlag(D, t) { if (!t.tier) return null; return tierInfo(D, t.c).flags.find(f => f.t.id === t.id) || null; }
+function tierStrip(D, info) {
+  const all = info.tiers.flatMap(x => x.teams.map(t => power(D, t)));
+  let lo = Math.min(...all), hi = Math.max(...all); const pad = (hi - lo) * 0.06 + 0.3; lo -= pad; hi += pad;
+  const W = 640, rowH = 46, L = 64, R = 16, T = 8, H = T + info.tiers.length * rowH + 26;
+  const x = v => L + (v - lo) / (hi - lo) * (W - L - R);
+  const step = niceStep(hi - lo), ticks = [];
+  for (let v = Math.ceil(lo / step) * step; v <= hi; v += step) ticks.push(+v.toFixed(2));
+  const flagged = new Set(info.flags.map(f => f.t.id));
+  return `<svg viewBox="0 0 ${W} ${H}" width="100%" role="img" aria-label="Power of every team, one row per tier">
+    ${ticks.map(v => `<line x1="${x(v)}" x2="${x(v)}" y1="${T}" y2="${H - 22}" stroke="var(--line)"/><text x="${x(v)}" y="${H - 6}" text-anchor="middle" fill="var(--muted)" style="font:11px var(--mono)">${sgn(v, step < 1 ? 1 : 0)}</text>`).join('')}
+    ${info.tiers.map((tr, i) => { const cy = T + i * rowH + rowH / 2;
+      return `<text x="0" y="${cy + 4}" fill="var(--ink)" style="font:700 13px var(--body)">Tier ${tr.tier}</text>
+        <line x1="${x(tr.lo)}" x2="${x(tr.hi)}" y1="${cy}" y2="${cy}" stroke="var(--bar)" stroke-width="2"/>
+        ${tr.teams.map((t, j) => { const p = power(D, t), f = flagged.has(t.id);
+          return `<circle cx="${x(p).toFixed(1)}" cy="${(cy + ((j % 3) - 1) * 6).toFixed(1)}" r="${f ? 6 : 4.5}" fill="${f ? 'var(--red)' : 'var(--blue)'}" opacity="${f ? 1 : .7}"><title>${esc(t.n)}: ${sgn(p)}</title></circle>`; }).join('')}
+        <line x1="${x(tr.med)}" x2="${x(tr.med)}" y1="${cy - 15}" y2="${cy + 15}" stroke="var(--ink)" stroke-width="2.5"/>`; }).join('')}
+  </svg>`;
+}
+function viewTiers(D) {
+  if (S.level === 'house') return `<p class="eyebrow">${esc(D.div)} · tier check</p><h1>Tier check</h1><p class="lede">House teams aren't placed in tiers, so the tier check covers rep teams only. Switch to Rep at the top to see it.</p>`;
+  const cats = levelCats(D).map(c => c.c).filter(c => tierInfo(D, c).tiers.length >= 2);
+  if (!cats.length) return `<p class="eyebrow">${esc(D.div)} · tier check</p><h1>Tier check</h1><p class="lede">No ${esc(D.div)} ${levelName()} category has tiered teams with enough games yet.</p>`;
+  if (!cats.includes(S.tierCat)) S.tierCat = cats[0];
+  const info = tierInfo(D, S.tierCat);
+  const up = info.flags.filter(f => f.like < f.tier).sort((a, b) => b.p - a.p), down = info.flags.filter(f => f.like > f.tier).sort((a, b) => a.p - b.p);
+  const row = f => `<tr><td class="l team"><a href="#${S.div}-team-${f.t.id}">${esc(f.t.n)}</a></td><td class="num">${f.tier}</td><td class="num"><b>${f.like}</b></td><td class="num">${sgn(f.p)}</td><td class="num">${f.t.w}-${f.t.l}-${f.t.t}</td></tr>`;
+  const head = `<thead><tr><th class="l">Team</th><th>Placed</th><th>${tipSpan('tier', 'Plays like')}</th><th>Power</th><th>Record</th></tr></thead>`;
+  return `
+  <p class="eyebrow">${esc(D.div)} · tier check</p>
+  <h1>Did placement get it right?</h1>
+  <p class="lede">Each row is a tier. Each dot is a PCAHA team, placed by its Power; the black line is the tier's middle team. Red dots are teams playing clearly closer to a different tier's middle team than to their own, by at least a goal a game (six or more games played).</p>
+  <div class="controls"><div class="chips" role="group" aria-label="Category">${cats.map(c => `<button type="button" class="chip" data-tcat="${esc(c)}" aria-pressed="${c === S.tierCat}">${esc(c)}</button>`).join('')}</div></div>
+  <div class="panel">${tierStrip(D, info)}</div>
+  <div class="grid2" style="margin-top:18px">
+    <section><h2 style="margin-top:0">Playing above their tier</h2>${up.length ? `<div class="tframe"><table>${head}<tbody>${up.map(row).join('')}</tbody></table></div>` : '<p class="note">None right now.</p>'}</section>
+    <section><h2 style="margin-top:0">Playing below their tier</h2>${down.length ? `<div class="tframe"><table>${head}<tbody>${down.map(row).join('')}</tbody></table></div>` : '<p class="note">None right now.</p>'}</section>
+  </div>
+  <h2>Tier by tier</h2>
+  <div class="tframe"><table><thead><tr><th class="l">Tier</th><th>Teams</th><th>Middle team</th><th>Strongest</th><th>Weakest</th></tr></thead>
+  <tbody>${info.tiers.map(tr => `<tr><td class="l"><b>Tier ${tr.tier}</b></td><td class="num">${tr.teams.length}</td><td class="num">${sgn(tr.med)}</td><td class="num">${sgn(tr.hi)}</td><td class="num">${sgn(tr.lo)}</td></tr>`).join('')}</tbody></table></div>
+  <p class="note">Tiers come from team names (for example "A2 Tier 2"). Teams without a tier in their name aren't shown.</p>`;
+}
+
+/* ---------- clubs ---------- */
+function heat(v) { return v == null ? '' : `style="background:color-mix(in srgb, var(--blue) ${Math.round(Math.max(0, v - 30) * 0.55)}%, transparent)"`; }
+function clubRows(A) {
+  return A.map(a => {
+    const ts = a.teams.filter(t => inLevel(t.c)); if (!ts.length) return null;
+    const by = {}; ts.forEach(t => (by[t.d] ||= []).push(t.cpct));
+    const divs = {}; for (const [d, v] of Object.entries(by)) divs[d] = Math.round(v.reduce((x, y) => x + y, 0) / v.length);
+    const key = `${S.level}|${S.gender}`;
+    const past = Object.entries(a.hist || {}).sort().map(([season, v]) => [season, v[key] ? v[key][0] : null]);
+    const avg = Math.round(ts.reduce((x, t) => x + t.cpct, 0) / ts.length);
+    return { a: a.a, teams: ts, n: ts.length, avg, top: ts.filter(t => t.cpct >= 75).length, divs, trend: [...past, [S.index.season || 'Now', avg]] };
+  }).filter(Boolean).sort((x, y) => y.avg - x.avg || y.n - x.n);
+}
+function viewClubs(A0) {
+  const A = clubRows(A0);
+  const divs = S.index.divisions.map(d => d.id).filter(d => A.some(a => a.divs[d] != null));
+  const minN = S.gender === 'female' ? 2 : S.level === 'house' ? 4 : 3;
+  let rows = A.filter(a => S.clubAll || a.n >= minN);
+  if (S.cq) { const q = S.cq.toLowerCase(); rows = rows.filter(a => a.a.toLowerCase().includes(q)); }
+  return `
+  <p class="eyebrow">All age groups · ${levelName()} teams</p>
+  <h1>Club report cards</h1>
+  <p class="lede">How strong each association's ${levelName()} teams are, across every age group${S.level === 'rep' ? ' and tier' : ''}. The score is the average ${tipSpan('cpct', 'category percentile')} of its PCAHA teams: 50 is a typical team, 75 means its teams beat three in four of their peers on average.</p>
+  <div class="controls">
+    <div class="chips" role="group" aria-label="Clubs to show"><button type="button" class="chip" data-clubs="4" aria-pressed="${!S.clubAll}">${minN}+ teams</button><button type="button" class="chip" data-clubs="all" aria-pressed="${!!S.clubAll}">All</button></div>
+    <label><span class="eyebrow" style="margin-right:6px">Find</span><input type="search" id="cq" placeholder="Association" value="${esc(S.cq || '')}"></label>
+  </div>
+  <div class="tframe"><table>
+    <thead><tr><th class="l">#</th><th class="l">Association</th><th>Teams</th><th>${tipSpan('cpct', 'Score')}</th><th>${tipSpan('topq', 'Top 25%')}</th><th>${tipSpan('trend', 'Trend')}</th>${divs.map(d => `<th class="hide-sm">${d.toUpperCase()}</th>`).join('')}</tr></thead>
+    <tbody>${rows.map((a, i) => `<tr>
+      <td class="l rank">${i + 1}</td>
+      <td class="l team"><details><summary><b>${esc(a.a)}</b></summary><p class="note" style="margin:8px 0 0">By season: ${a.trend.map(([s, v]) => `${esc(s)} <b>${v ?? '–'}</b>`).join(' · ')}</p><ul class="clubteams">${a.teams.map(t => `<li><a href="#${t.d}-team-${t.id}">${esc(t.n)}</a> <span class="num note">${t.d.toUpperCase()} · ${esc(t.c)} · #${t.rank}/${t.of} · ${Math.round(t.cpct)}</span></li>`).join('')}</ul></details></td>
+      <td class="num">${a.n}</td><td class="num"><b>${a.avg}</b></td><td class="num">${a.top}</td><td class="num">${trendCell(a.trend)}</td>
+      ${divs.map(d => `<td class="num hide-sm" ${heat(a.divs[d])}>${a.divs[d] ?? '–'}</td>`).join('')}</tr>`).join('') || '<tr><td class="l" colspan="9">No associations match.</td></tr>'}</tbody>
+  </table></div>
+  <p class="note">Open an association to see every team and its rank in its category. Percentile compares each team with all teams in its own category (for example U13 A), so A and C programs are judged against their own level.</p>`;
+}
+
+function trendCell(tr) {
+  const pts = tr.filter(([, v]) => v != null);
+  if (pts.length < 2) return '<span class="note">new</span>';
+  const W = 72, H = 22, xs = i => 3 + i * (W - 6) / (tr.length - 1), ys = v => H - 3 - v / 100 * (H - 6);
+  const line = tr.map(([, v], i) => v == null ? null : `${xs(i).toFixed(1)},${ys(v).toFixed(1)}`).filter(Boolean).join(' ');
+  const last = tr[tr.length - 1][1], prev = [...tr].slice(0, -1).reverse().find(([, v]) => v != null);
+  const d = prev ? last - prev[1] : 0;
+  return `<span class="trend"><svg viewBox="0 0 ${W} ${H}" width="${W}" height="${H}" aria-hidden="true"><line x1="0" x2="${W}" y1="${ys(50)}" y2="${ys(50)}" stroke="var(--line)" stroke-dasharray="3 3"/><polyline points="${line}" fill="none" stroke="var(--blue)" stroke-width="2"/><circle cx="${xs(tr.length - 1)}" cy="${ys(last)}" r="2.8" fill="var(--red)"/></svg><span class="mv ${d > 0 ? 'up' : d < 0 ? 'down' : 'flat'}">${d > 0 ? '▲' + d : d < 0 ? '▼' + -d : '–'}</span></span>`;
+}
+
+/* ---------- this week ---------- */
+function viewWeek(D) {
+  const today = S.index.today, wk = new Date(new Date(today + 'T12:00:00') - 7 * 864e5).toISOString().slice(0, 10);
+  const nextWk = new Date(new Date(today + 'T12:00:00').getTime() + 7 * 864e5).toISOString().slice(0, 10);
+  const teams = Object.values(D.teams).filter(t => t.rg === 'pcaha' && inLevel(t.c));
+  const movers = teams.filter(t => t.hist.length >= 2 && t.gp >= 4).map(t => {
+    const cur = t.hist[t.hist.length - 1]; let prev = null;
+    for (let i = t.hist.length - 2; i >= 0; i--) if (t.hist[i][0] <= wk) { prev = t.hist[i]; break; }
+    return prev ? { t, from: prev[2], to: cur[2], d: prev[2] - cur[2] } : null;
+  }).filter(Boolean);
+  const risers = movers.filter(m => m.d > 0).sort((a, b) => b.d - a.d).slice(0, 6);
+  const fallers = movers.filter(m => m.d < 0).sort((a, b) => a.d - b.d).slice(0, 6);
+  const ups = D.upsets.filter(u => u.d >= wk && (inLevel(D.teams[u.h].c) || inLevel(D.teams[u.a].c))).slice(0, 6);
+  const perf = [];
+  teams.forEach(t => t.log.forEach(g => { if (g.d >= wk && g.pf >= 2.5) perf.push({ t, g }); }));
+  perf.sort((a, b) => b.g.pf - a.g.pf);
+  const streak = t => { let n = 0, kind = null; for (let i = t.log.length - 1; i >= 0; i--) { const r = t.log[i].r === 'W' ? 'W' : 'X'; if (kind == null) kind = r; if (r !== kind) break; n++; } return { kind, n }; };
+  const hot = teams.map(t => ({ t, s: streak(t) })).filter(x => x.s.kind === 'W' && x.s.n >= 4).sort((a, b) => b.s.n - a.s.n).slice(0, 6);
+  const cold = teams.map(t => ({ t, s: streak(t) })).filter(x => x.s.kind === 'X' && x.s.n >= 4).sort((a, b) => b.s.n - a.s.n).slice(0, 6);
+  const watch = D.upcoming.filter(g => g.d <= nextWk && inLevel(D.teams[g.h].c) && isWatch(D, g)).slice(0, 8);
+  const tl = t => `<a href="#${S.div}-team-${t.id}">${esc(t.n)}</a>`;
+  const top = risers[0];
+  const lead = top ? `${esc(top.t.n)} made the biggest move this week, up ${top.d} places to #${top.to} in ${esc(top.t.c)}.` : 'A quiet week in the rankings.';
+  const li = (cls, html) => `<li class="${cls}">${html}</li>`;
+  return `
+  <p class="eyebrow">${esc(D.div)} · week to ${esc(dateLabel(today))}</p>
+  <h1>This week in ${esc(D.div)} ${S.gender === 'female' ? 'Female ' : ''}${S.level === 'house' ? 'House' : 'Rep'}</h1>
+  <p class="lede">${lead} ${ups.length ? `${ups.length} upset${ups.length > 1 ? 's' : ''} and ` : ''}${watch.length} game${watch.length === 1 ? '' : 's'} to watch in the week ahead.</p>
+  ${mineSection(false)}
+  <div class="grid2">
+    <section class="panel"><h2 style="margin-top:0">Climbing</h2><ul class="plain">${risers.map(m => li('', `<span class="mv up">▲${m.d}</span> ${tl(m.t)} <span class="note">${esc(m.t.c)}: #${m.from} → #${m.to}</span>`)).join('') || '<li class="note">No big moves.</li>'}</ul></section>
+    <section class="panel"><h2 style="margin-top:0">Sliding</h2><ul class="plain">${fallers.map(m => li('', `<span class="mv down">▼${-m.d}</span> ${tl(m.t)} <span class="note">${esc(m.t.c)}: #${m.from} → #${m.to}</span>`)).join('') || '<li class="note">No big moves.</li>'}</ul></section>
+  </div>
+  <h2>Upsets</h2>
+  ${ups.length ? `<ul class="plain">${ups.map(u => { const hw = u.hs > u.as, w = D.teams[hw ? u.h : u.a], l = D.teams[hw ? u.a : u.h];
+    return li('', `${tl(w)} beat ${tl(l)} ${Math.max(u.hs, u.as)}-${Math.min(u.hs, u.as)} <span class="note">${esc(dateLabel(u.d))} · ${sideWord(u.p).toLowerCase()} going in</span>`); }).join('')}</ul>` : '<p class="note">No big upsets this week.</p>'}
+  <h2>Standout performances</h2>
+  ${perf.length ? `<ul class="plain">${perf.slice(0, 6).map(({ t, g }) => { const o = D.teams[g.o];
+    return li('', `${tl(t)} ${g.r === 'W' ? 'beat' : g.r === 'T' ? 'tied' : 'lost to'} ${o ? tl(o) : 'an opponent'} ${g.gf}-${g.ga}, <b>${sgn(g.pf)}</b> goals better than expected <span class="note">${esc(dateLabel(g.d))}</span>`); }).join('')}</ul>` : '<p class="note">Nothing far above expectations this week.</p>'}
+  <div class="grid2" style="margin-top:6px">
+    <section><h2>On a roll</h2><ul class="plain">${hot.map(x => li('', `${tl(x.t)} <span class="note">${x.s.n} straight wins</span>`)).join('') || '<li class="note">No team has won four straight.</li>'}</ul></section>
+    <section><h2>Looking for a win</h2><ul class="plain">${cold.map(x => li('', `${tl(x.t)} <span class="note">${x.s.n} games without a win</span>`)).join('') || '<li class="note">No team is four games without a win.</li>'}</ul></section>
+  </div>
+  <h2>Games to watch</h2>
+  ${watch.length ? `<div class="games">${watch.map(g => gameCard(D, g)).join('')}</div>` : '<p class="note">No matchups between two top-quarter teams with close odds in the next seven days.</p>'}`;
+}
+
+/* ---------- matchup scouting report ---------- */
+function shortName(t) {
+  const club = t.a.replace(/\b(Minor Hockey Association|MHA|AHA|IHA|FHA|HA|Hockey|Association)\b/g, '').replace(/\s+/g, ' ').trim() || t.a;
+  const m = t.n.match(/U\d+\s+(?:Female\s+)?([A-Z]{1,3}\d{1,2})\b/) || t.n.match(/\b(Tier \d)\b/);
+  return m ? `${club} ${m[1]}` : t.n;
+}
+function findGame(D, gid) {
+  const up = D.upcoming.find(g => g.g === gid);
+  if (up) return { ...up, done: false };
+  for (const t of Object.values(D.teams)) {
+    const l = t.log.find(x => x.g === gid && x.h);
+    if (l) { const m = matchup(D, t, D.teams[l.o] || t); return { g: gid, d: l.d, h: t.id, a: l.o, done: true, hs: l.gf, as: l.ga, s: l.s, ph: m.ph, pt: m.pt, pa: m.pa, eh: m.eh, ea: m.ea }; }
+  }
+  return null;
+}
+const penPG = t => t.sheets ? t.st.pen / t.sheets : null;
+const perDiff = (t, p) => t.per[p][0] - t.per[p][1];
+const topPct = p => `top ${Math.max(1, 100 - p)}%`;
+const botPct = p => `bottom ${Math.max(1, p)}%`;
+function matchKeys(D, A, B, m) {
+  const keys = [];
+  const nm = t => esc(shortName(t));
+  const pa = A.pct || {}, pb = B.pct || {};
+  // overall
+  const fav = m.ph >= m.pa ? A : B, favP = Math.round(Math.max(m.ph, m.pa)), close = Math.abs(m.ph - m.pa) < 12;
+  const word = edgeWord(Math.max(m.ph, m.pa) / Math.max(m.ph + m.pa, 1e-9));
+  keys.push(word === 'Even'
+    ? `An even matchup on paper. Either team can win this one.`
+    : word === 'Slight edge' ? `${nm(fav)} have a slight edge, but this is well within reach for ${nm(fav === A ? B : A)}.`
+    : word === 'Clear edge' ? `${nm(fav)} have a clear edge on paper. ${nm(fav === A ? B : A)} will need their best game.`
+    : `${nm(fav)} are strong favourites on paper. For ${nm(fav === A ? B : A)}, a strong effort and a good goalie game can still make it close.`);
+  // offence vs defence, both ways
+  for (const [X, Y, px, py] of [[A, B, pa, pb], [B, A, pb, pa]]) {
+    if (px.off >= 75 && py.def >= 75) keys.push(`Strength on strength: ${nm(X)} score a lot (${topPct(px.off)} in ${esc(X.c)}) and ${nm(Y)} are hard to score on (${topPct(py.def)} in ${esc(Y.c)}). Something has to give.`);
+    else if (px.off >= 70 && py.def <= 35) keys.push(`${nm(X)}'s offence (${fmt(X.off)} expected goals a game) meets a ${nm(Y)} defence that has given up chances (${botPct(py.def)} in ${esc(Y.c)}). This is where ${nm(X)} should win it.`);
+    else if (px.off <= 30 && py.def >= 70) keys.push(`${nm(X)} have struggled to score, and ${nm(Y)} don't give much away. Goals will be hard to come by for ${nm(X)}; a greasy goal or a power play may decide it.`);
+  }
+  // special teams clash
+  for (const [X, Y, px, py] of [[A, B, pa, pb], [B, A, pb, pa]]) {
+    if (X.st.pp != null && Y.st.pk != null && px.pp >= 70 && py.pk <= 40) {
+      const pg = penPG(Y);
+      keys.push(`Special teams favour ${nm(X)}: their power play converts about ${X.st.pp}%, and ${nm(Y)}'s penalty kill is ${botPct(py.pk)} in ${esc(Y.c)}. ${pg == null ? `${nm(Y)} need to stay out of the box.` : pg >= 4.5 ? `${nm(Y)} also take ${fmt(pg)} penalties a game, so discipline is the big one.` : pg <= 3 ? `${nm(Y)} only take ${fmt(pg)} penalties a game, which limits the damage.` : `${nm(Y)} need to stay out of the box.`}`);
+    } else if (X.st.pp != null && Y.st.pk != null && px.pp <= 25 && py.pk >= 75) {
+      keys.push(`${nm(X)}'s power play (${X.st.pp}%) runs into a strong ${nm(Y)} penalty kill (${Y.st.pk}%). Don't count on special teams to bail ${nm(X)} out.`);
+    }
+  }
+  // discipline gap
+  const pA = penPG(A), pB = penPG(B);
+  if (pA != null && pB != null && Math.abs(pA - pB) >= 2) {
+    const [hi, lo, h] = pA > pB ? [A, B, pA] : [B, A, pB];
+    keys.push(`${nm(hi)} take more penalties (${fmt(h)} a game against ${fmt(Math.min(pA, pB))} for ${nm(lo)}). Expect ${nm(lo)} to get more power plays.`);
+  }
+  // periods
+  if (A.sheets >= 5 && B.sheets >= 5) {
+    const a3 = perDiff(A, '3') - perDiff(A, '1'), b3 = perDiff(B, '3') - perDiff(B, '1');
+    if (a3 >= 4 && b3 <= -3) keys.push(`Watch the third period. ${nm(A)} finish strong (${sgn(perDiff(A, '3'), 0)} in thirds) while ${nm(B)} tend to fade (${sgn(perDiff(B, '3'), 0)}). If it's close after two, that favours ${nm(A)}.`);
+    else if (b3 >= 4 && a3 <= -3) keys.push(`Watch the third period. ${nm(B)} finish strong (${sgn(perDiff(B, '3'), 0)} in thirds) while ${nm(A)} tend to fade (${sgn(perDiff(A, '3'), 0)}). If it's close after two, that favours ${nm(B)}.`);
+    for (const X of [A, B]) if (perDiff(X, '1') <= -4) keys.push(`${nm(X)} have been slow starters (${sgn(perDiff(X, '1'), 0)} in first periods). A sharp first ten minutes matters for them.`);
+  }
+  // scorers
+  for (const X of [A, B]) if (X.depth.top3 != null && X.depth.top3 >= 65) keys.push(`${nm(X)} lean on their top scorers (${X.depth.top3}% of goals from three players). Take those away and the offence goes quiet.`);
+  // form and luck
+  for (const X of [A, B]) {
+    if (X.formPerf != null && X.formPerf >= 1.5) keys.push(`${nm(X)} are playing above their rating, ${sgn(X.formPerf)} goals a game better than expected over the last five.`);
+    if (X.formPerf != null && X.formPerf <= -1.5) keys.push(`${nm(X)} have cooled off, ${sgn(X.formPerf)} goals a game below expectations over the last five.`);
+    const luck = X.ptsPct - X.xPtsPct;
+    if (luck >= 15) keys.push(`${nm(X)}'s record flatters them a little (luck ${sgn(luck, 0)}). They've won more close ones than their play suggests.`);
+    if (luck <= -15) keys.push(`${nm(X)} are better than their record (luck ${sgn(luck, 0)}). Don't be fooled by the standings.`);
+  }
+  // one-goal games when close
+  if (close) for (const X of [A, B]) { const o = X.one, n = o[0] + o[1] + o[2]; if (n >= 3 && (o[0] / n >= 0.7 || o[1] / n >= 0.7)) keys.push(`In one-goal games ${nm(X)} are ${rec(o)}. ${o[0] > o[1] ? 'They know how to close out tight games.' : 'Tight games have slipped away from them.'}`); }
+  return keys;
+}
+function compareRows(D, A, B) {
+  const pw = t => power(D, t);
+  const rows = [
+    ['Power', pw(A), pw(B), v => sgn(v), true, 'power'],
+    ['Record', A.ptsPct, B.ptsPct, (v, t) => `${t.w}-${t.l}-${t.t}`, true, 'record'],
+    ['Goals for*', A.off, B.off, v => fmt(v), true, 'gf'],
+    ['Goals against*', A.def, B.def, v => fmt(v), false, 'ga'],
+    ['Power play', A.st.pp, B.st.pp, v => pct(v), true, 'pp'],
+    ['Penalty kill', A.st.pk, B.st.pk, v => pct(v), true, 'pk'],
+    ['Penalties a game', penPG(A), penPG(B), v => fmt(v), false, null],
+    ['Third periods', A.sheets ? perDiff(A, '3') : null, B.sheets ? perDiff(B, '3') : null, v => sgn(v, 0), true, null],
+    ['Schedule so far', A.sos, B.sos, v => sgn(v == null ? null : v - catMean(D, A.c)), true, 'sched'],
+    ['Luck', A.ptsPct - A.xPtsPct, B.ptsPct - B.xPtsPct, v => sgn(v, 0), null, 'luck'],
+  ];
+  return rows.map(([label, a, b, f, hiGood, tip]) => {
+    let wa = '', wb = '';
+    if (hiGood != null && a != null && b != null && a !== b) { const aBetter = hiGood ? a > b : a < b; wa = aBetter ? 'win' : ''; wb = aBetter ? '' : 'win'; }
+    return `<tr><td class="num ${wa}">${f(a, A)}</td><td class="mid">${tip ? tipSpan(tip, label) : label}</td><td class="num ${wb}">${f(b, B)}</td></tr>`;
+  }).join('') + `<tr><td class="num">${formCell(A.form)}</td><td class="mid">${tipSpan('form', 'Last 5')}</td><td class="num">${formCell(B.form)}</td></tr>`;
+}
+function viewMatch(D, A, B, g) {
+  const m = g && !g.done ? { ph: g.ph, pt: g.pt, pa: g.pa, eh: g.eh, ea: g.ea } : matchup(D, A, B);
+  const h2h = A.log.filter(x => x.o === B.id);
+  const oppsA = {}; A.log.forEach(x => { if (x.o !== B.id) (oppsA[x.o] ||= []).push(x); });
+  const common = [];
+  B.log.forEach(x => { if (oppsA[x.o]) common.push(x.o); });
+  const commonRows = [...new Set(common)].map(o => {
+    const ra = oppsA[o], rb = B.log.filter(x => x.o === o);
+    const s = l => l.map(x => `<b class="${x.r === 'W' ? 'up' : x.r === 'L' ? 'down' : ''}">${x.r}</b> ${x.gf}-${x.ga}`).join(', ');
+    const gd = l => l.reduce((t, x) => t + x.gf - x.ga, 0);
+    return { o, a: s(ra), b: s(rb), d: gd(ra) - gd(rb) };
+  });
+  const cmpTot = commonRows.reduce((t, r) => t + r.d, 0);
+  const keys = matchKeys(D, A, B, m);
+  const title = g ? `${esc(A.n)} vs ${esc(B.n)}` : `${esc(A.n)} vs ${esc(B.n)}`;
+  const when = g ? `${esc(dateLabel(g.d))}${g.st ? ' ' + esc(timeLabel(g.st)) : ''}${g.ar ? ' · ' + esc(g.ar) : ''}${g.s && D.schedules[g.s] ? ' · ' + esc(D.schedules[g.s].n) : ''}` : 'Neutral ice';
+  return `
+  <p class="eyebrow">${esc(D.div)} · ${g ? (g.done ? 'game report' : 'game preview') : 'matchup report'}</p>
+  <h1 class="matchtitle">${title} ${g && !g.done ? shareBtn(`${S.div}-game-${g.g}`, `${shortName(A)} vs ${shortName(B)}`) : ''}</h1>
+  <p class="lede">${when}${g && g.done ? `. Final: <b>${g.hs}-${g.as}</b>.` : ''}</p>
+  <div class="panel matchodds">
+    ${strengthBar(m.ph, m.pt, m.pa, A, B, { homeAway: !!g })}
+  </div>
+  <div class="grid2" style="margin-top:18px">
+    <section class="panel"><h2 style="margin-top:0">Keys to the game</h2><ul class="report">${keys.map(k => `<li data-tag="i">${k}</li>`).join('')}</ul></section>
+    <section><div class="tframe"><table class="compare">
+      <thead><tr><th><a href="#${S.div}-team-${A.id}">${esc(A.n)}</a></th><th class="mid"></th><th><a href="#${S.div}-team-${B.id}">${esc(B.n)}</a></th></tr></thead>
+      <tbody>${compareRows(D, A, B)}</tbody></table></div>
+      <p class="note">Bold marks the better number. GF* and GA* are against an average opponent.</p></section>
+  </div>
+  <h2>Head to head this season</h2>
+  ${h2h.length ? `<div class="tframe"><table><tbody>${h2h.map(x => `<tr><td class="l num">${esc(x.d.slice(5))}</td><td class="l">${x.h ? `${esc(A.n)} at home` : `at ${esc(B.n)}`}</td><td class="num"><b class="${x.r === 'W' ? 'up' : x.r === 'L' ? 'down' : ''}">${esc(shortName(A))} ${x.r}</b> ${x.gf}-${x.ga}</td><td class="l note hide-sm">${esc((D.schedules[x.s] || {}).n || '')}</td></tr>`).join('')}</tbody></table></div>` : '<p class="note">They haven\'t played each other yet this season.</p>'}
+  <h2>Common opponents</h2>
+  ${commonRows.length ? `<p class="note">${cmpTot === 0 ? 'Even' : `${esc((cmpTot > 0 ? A : B).n)} ${sgn(Math.abs(cmpTot), 0).replace('+', '')} goals better`} across ${commonRows.length} shared opponent${commonRows.length > 1 ? 's' : ''}.</p>
+  <div class="tframe"><table><thead><tr><th class="l">Opponent</th><th>${esc(A.n)}</th><th>${esc(B.n)}</th></tr></thead><tbody>${commonRows.map(r => { const o = D.teams[r.o];
+    return `<tr><td class="l team">${o ? `<a href="#${S.div}-team-${o.id}">${esc(o.n)}</a>` : ''}</td><td class="num">${r.a}</td><td class="num">${r.b}</td></tr>`; }).join('')}</tbody></table></div>` : '<p class="note">No shared opponents yet.</p>'}
+  <p class="note" style="margin-top:18px">${g && g.done ? 'Odds use today\'s ratings, so they show how the game looks now rather than beforehand.' : 'Odds and expected goals come from the current ratings. Rosters, goalies and who\'s missing on the day aren\'t in the data.'}</p>`;
+}
+
+/* ---------- track record ---------- */
+function weekOf(d) { const x = new Date(d + 'T12:00:00'); x.setDate(x.getDate() - ((x.getDay() + 6) % 7)); return x.toISOString().slice(0, 10); }
+function scoreTrack(rows) {
+  const dec = rows.filter(r => r.hs !== r.as);
+  const right = dec.filter(r => (r.ph >= r.pa) === (r.hs > r.as)).length;
+  const withBase = dec.filter(r => r.b);
+  const baseRight = withBase.filter(r => (r.b === 'h') === (r.hs > r.as)).length;
+  const conf = dec.filter(r => Math.max(r.ph, r.pa) >= 70);
+  const confRight = conf.filter(r => (r.ph >= r.pa) === (r.hs > r.as)).length;
+  return { n: rows.length, dec: dec.length, right, acc: dec.length ? right / dec.length : null, baseN: withBase.length, baseAcc: withBase.length ? baseRight / withBase.length : null, conf: conf.length, confAcc: conf.length ? confRight / conf.length : null, ties: rows.length - dec.length };
+}
+function weekChart(rows) {
+  const by = {}; rows.filter(r => r.hs !== r.as).forEach(r => { const w = weekOf(r.d); (by[w] ||= []).push(r); });
+  const weeks = Object.keys(by).sort().filter(w => by[w].length >= 5);
+  if (weeks.length < 2) return '';
+  const W = 600, H = 210, L = 40, R = 10, T = 16, B = 34, bw = (W - L - R) / weeks.length;
+  const y = v => T + (1 - v) * (H - T - B);
+  return `<svg viewBox="0 0 ${W} ${H}" width="100%" role="img" aria-label="Share of winners called correctly, by week">
+    ${[0, .25, .5, .75, 1].map(v => `<line x1="${L}" x2="${W - R}" y1="${y(v)}" y2="${y(v)}" stroke="var(--line)" ${v === .5 ? 'stroke-dasharray="5 4"' : ''}/><text x="${L - 6}" y="${y(v) + 4}" text-anchor="end" fill="var(--muted)" style="font:11px var(--mono)">${v * 100}%</text>`).join('')}
+    ${weeks.map((w, i) => { const g = by[w], acc = g.filter(r => (r.ph >= r.pa) === (r.hs > r.as)).length / g.length, x = L + i * bw + bw * 0.18, bwid = bw * 0.64;
+      return `<rect x="${x}" y="${y(acc)}" width="${bwid}" height="${y(0) - y(acc)}" rx="3" fill="var(--blue)"><title>Week of ${shortDate(w)}: ${Math.round(acc * 100)}% of ${g.length} games</title></rect>
+        <text x="${x + bwid / 2}" y="${y(acc) - 5}" text-anchor="middle" fill="var(--ink)" style="font:600 11px var(--mono)">${Math.round(acc * 100)}</text>
+        <text x="${x + bwid / 2}" y="${H - 18}" text-anchor="middle" fill="var(--muted)" style="font:11px var(--mono)">${shortDate(w)}</text>
+        <text x="${x + bwid / 2}" y="${H - 5}" text-anchor="middle" fill="var(--muted)" style="font:10px var(--mono)">${g.length}g</text>`; }).join('')}
+  </svg>`;
+}
+function calRows(rows) {
+  const b = {};
+  rows.filter(r => r.hs !== r.as).forEach(r => { const pf = Math.max(r.ph, r.pa) / (r.ph + r.pa); const k = Math.min(Math.floor(pf * 10), 9); (b[k] ||= [0, 0, 0]); b[k][0]++; b[k][1] += (r.ph >= r.pa) === (r.hs > r.as); b[k][2] += pf; });
+  return Object.keys(b).sort().map(k => ({ predicted: b[k][2] / b[k][0], actual: b[k][1] / b[k][0], games: b[k][0] })).filter(x => x.games >= 12);
+}
+function viewRecord(D) {
+  const cats = ['all', ...levelCats(D).map(c => c.c)];
+  if (!cats.includes(S.recCat)) S.recCat = 'all';
+  const inSel = r => { const h = D.teams[r.h], a = D.teams[r.a]; if (!h || !a) return false;
+    return (inLevel(h.c) || inLevel(a.c)) && (S.recCat === 'all' || h.c === S.recCat || a.c === S.recCat); };
+  const rows = D.track.filter(inSel);
+  const sc = scoreTrack(rows);
+  const cal = calRows(rows);
+  const misses = rows.filter(r => r.hs !== r.as).map(r => ({ r, p: r.hs > r.as ? r.ph : r.pa })).sort((x, y) => x.p - y.p).slice(0, 8);
+  const list = rows.slice().sort((x, y) => y.d.localeCompare(x.d) || y.g - x.g).slice(0, S.recShow || 40);
+  const call = r => r.hs === r.as ? '<span class="note">Tie</span>' : ((r.ph >= r.pa) === (r.hs > r.as) ? '<b class="up" aria-label="Correct">✓</b>' : '<b class="down" aria-label="Missed">✗</b>');
+  const nm = id => D.teams[id] ? `<a href="#${S.div}-team-${id}">${esc(shortName(D.teams[id]))}</a>` : '';
+  const published = rows.filter(r => r.src === 'p').length;
+  return `
+  <p class="eyebrow">${esc(D.div)} ${levelName()} · ${esc(S.index.season || '')} season</p>
+  <h1>Track record</h1>
+  <p class="lede">Every ${esc(D.div)} ${levelName()} game played this season, scored against the odds the model gave before it was played. Games are included once both teams had played three times.</p>
+  <div class="controls"><div class="chips" role="group" aria-label="Category">${cats.map(c => `<button type="button" class="chip" data-rcat="${esc(c)}" aria-pressed="${c === S.recCat}">${c === 'all' ? 'All' : esc(c)}</button>`).join('')}</div></div>
+  ${sc.dec ? `<div class="tiles">
+    <div class="tile"><div class="k" tabindex="0" data-tip="picked">Winner called</div><div class="v num">${Math.round(sc.acc * 100)}%</div><div class="s">${sc.right} of ${sc.dec} games with a winner</div></div>
+    <div class="tile"><div class="k" tabindex="0" data-tip="baseline">Better record</div><div class="v num">${sc.baseAcc == null ? '–' : Math.round(sc.baseAcc * 100) + '%'}</div><div class="s">picking the team with the better record</div></div>
+    <div class="tile"><div class="k" tabindex="0" data-tip="confident">Confident calls</div><div class="v num">${sc.confAcc == null ? '–' : Math.round(sc.confAcc * 100) + '%'}</div><div class="s">right when 70%+ sure (${sc.conf} games)</div></div>
+    <div class="tile"><div class="k">Ties</div><div class="v num">${sc.ties}</div><div class="s">not counted as right or wrong</div></div>
+  </div>` : '<p class="note">No games to score yet for this selection.</p>'}
+  ${sc.dec ? `<div class="grid2">
+    <section class="panel"><h2 style="margin-top:0">Week by week</h2>${weekChart(rows) || '<p class="note">Needs a couple of weeks of games.</p>'}<p class="note">Share of games where the favourite won. The dashed line is a coin flip.</p></section>
+    <section class="panel"><h2 style="margin-top:0">${tipSpan('calib', 'When it says 70%…')}</h2>${cal.length >= 2 ? calChart(cal) : '<p class="note">Needs more games.</p>'}<p class="note">Dots on the dashed line mean the odds were honest: teams given 70% won about 70% of the time.</p></section>
+  </div>` : ''}
+  ${misses.length ? `<h2>Biggest misses</h2><div class="tframe"><table><thead><tr><th class="l">Date</th><th class="l">Winner</th><th class="l">Beat</th><th>Score</th><th class="l">${tipSpan('upset', 'Winner going in')}</th></tr></thead><tbody>${misses.map(({ r, p }) => { const hw = r.hs > r.as;
+    return `<tr><td class="l num">${esc(r.d.slice(5))}</td><td class="l team">${nm(hw ? r.h : r.a)}</td><td class="l team">${nm(hw ? r.a : r.h)}</td><td class="num">${Math.max(r.hs, r.as)}-${Math.min(r.hs, r.as)}</td><td class="l">${sideWord(p)}</td></tr>`; }).join('')}</tbody></table></div>` : ''}
+  <h2>Every game</h2>
+  <div class="tframe"><table><thead><tr><th class="l">Date</th><th class="l">Home</th><th class="l">Away</th><th class="l">${tipSpan('odds', 'Going in')}</th><th>Final</th><th>Call</th><th class="hide-sm">${tipSpan('source', 'Source')}</th></tr></thead>
+  <tbody>${list.map(r => `<tr><td class="l num">${esc(r.d.slice(5))}</td><td class="l team">${nm(r.h)}</td><td class="l team">${nm(r.a)}</td>
+    <td class="l">${(() => { const w = edgeWord(Math.max(r.ph, r.pa) / Math.max(r.ph + r.pa, 1)); return w === 'Even' ? 'Even' : `${w}: ${D.teams[r.ph >= r.pa ? r.h : r.a] ? esc(shortName(D.teams[r.ph >= r.pa ? r.h : r.a])) : ''}`; })()}</td>
+    <td class="num"><a href="#${S.div}-game-${r.g}">${r.hs}-${r.as}</a></td><td class="num">${call(r)}</td><td class="hide-sm note">${r.src === 'p' ? 'Published' : 'Replayed'}</td></tr>`).join('')}</tbody></table></div>
+  ${rows.length > list.length ? `<p><button type="button" class="chip" data-more="1">Show 40 more</button> <span class="note">${list.length} of ${rows.length}</span></p>` : ''}
+  <p class="note">${published ? `${published} of these games use the odds the site published before the game. ` : ''}The rest are replayed: the model is refitted using only the games played before that day, so it can't see the result. From launch on, every game's published odds are saved and never changed.</p>`;
+}
+
+/* ---------- search across age groups ---------- */
+function viewSearchShell() {
+  return `<p class="eyebrow">All age groups</p><h1>Find a team</h1>
+  <p class="lede">Search every team in U11 to U18, rep and house, mixed and female. Try a club ("Arbutus"), a team ("Thunderbird A2") or a level ("U15 C").</p>
+  <div class="controls"><input type="search" id="sq" placeholder="Team, club or level" value="${esc(S.sq || '')}" style="width:min(420px,100%)" autocomplete="off"></div>
+  <div id="sres"><p class="note">Loading all age groups…</p></div>`;
+}
+function searchIndex() {
+  if (S.sidx && S.sidx.n === Object.keys(S.data).length) return S.sidx.list;
+  const list = [];
+  for (const [div, D] of Object.entries(S.data)) {
+    const ranks = {};
+    for (const c of D.cats) { const r = rankedList(D, c.c, 'all'); r.forEach(x => { ranks[x.t.id] = [x.rank, r.length]; }); }
+    for (const t of Object.values(D.teams)) {
+      list.push({ div, t, rk: ranks[t.id], words: `${t.n} ${t.a} ${shortName(t)} ${div} ${t.c}`.toLowerCase().split(/[^a-z0-9]+/).filter(Boolean) });
+    }
+  }
+  list.sort((a, b) => S.index.divisions.findIndex(d => d.id === a.div) - S.index.divisions.findIndex(d => d.id === b.div) || a.t.c.localeCompare(b.t.c) || b.t.net - a.t.net);
+  S.sidx = { n: Object.keys(S.data).length, list };
+  return list;
+}
+function runSearch() {
+  const el = $('#sres'); if (!el) return;
+  const q = (S.sq || '').trim().toLowerCase();
+  if (q.length < 2) { el.innerHTML = '<p class="note">Type at least two letters.</p>'; return; }
+  const words = q.split(/[^a-z0-9]+/).filter(Boolean);
+  // every word typed must start a word in the team's name, club or level ("thunderbird a2", "u15 c")
+  const hits = searchIndex().filter(x => words.every(w => x.words.some(h => h.startsWith(w))));
+  const clubs = [...new Set(hits.map(x => x.t.a))];
+  el.innerHTML = `<p class="note">${hits.length} team${hits.length === 1 ? '' : 's'}${clubs.length && clubs.length <= 3 ? ` · see ${clubs.map(c => `<a href="#clubs" data-club="${esc(c)}">${esc(c)}</a>`).join(', ')} on Clubs` : ''}</p>
+  ${hits.length ? `<div class="tframe"><table><thead><tr><th class="l">Team</th><th class="l">Category</th><th>Rank</th><th>Power</th><th>Record</th></tr></thead><tbody>${hits.slice(0, 80).map(({ div, t, rk }) => `<tr>
+    <td class="l team">${starBtn(div, t.id)}<a href="#${div}-team-${t.id}">${esc(t.n)}</a><small>${esc(t.lg || t.a)}</small></td>
+    <td class="l">${esc(t.c)}</td><td class="num">${rk ? `${rk[0]}/${rk[1]}` : '–'}</td><td class="num">${sgn(power(S.data[div], t))}</td><td class="num">${t.w}-${t.l}-${t.t}</td></tr>`).join('')}</tbody></table></div>
+    ${hits.length > 80 ? '<p class="note">Showing the first 80. Add a word to narrow it down.</p>' : ''}` : '<p class="note">No teams match. Try just the club name.</p>'}`;
+}
+function bindSearch() {
+  const q = $('#sq'); if (!q) return;
+  q.focus();
+  q.oninput = () => { S.sq = q.value; if (Object.keys(S.data).length === S.index.divisions.length) runSearch(); };
+  $('#app').onclick = e => { const c = e.target.closest('[data-club]'); if (c) { S.cq = c.dataset.club; S.clubAll = true; } };
+}
+
+/* ---------- events ---------- */
+function bind(D) {
+  hideTip();
+  const app = $('#app');
+  app.onclick = e => {
+    const b = e.target.closest('button'); const a = e.target.closest('[data-cat-link]');
+    if (a) { S.cat[S.div] = a.dataset.catLink; return; }
+    const tl = e.target.closest('[data-tier-link]'); if (tl) { S.tierCat = tl.dataset.tierLink; return; }
+    if (!b) return;
+    if (b.dataset.cat) { S.cat[S.div] = b.dataset.cat; S.q = ''; app.innerHTML = viewRankings(D); bind(D); }
+    else if (b.dataset.region) { S.region = b.dataset.region; app.innerHTML = viewRankings(D); bind(D); }
+    else if (b.dataset.sort) { S.sort = b.dataset.sort; app.innerHTML = viewRankings(D); bind(D); }
+    else if (b.dataset.gcat) { S.gamesCat = b.dataset.gcat; app.innerHTML = viewGames(D); bind(D); }
+    else if (b.dataset.rcat) { S.recCat = b.dataset.rcat; S.recShow = 40; app.innerHTML = viewRecord(D); bind(D); }
+    else if (b.dataset.more) { const y = window.scrollY; S.recShow = (S.recShow || 40) + 40; app.innerHTML = viewRecord(D); bind(D); window.scrollTo(0, y); }
+    else if (b.dataset.tcat) { S.tierCat = b.dataset.tcat; app.innerHTML = viewTiers(D); bind(D); }
+    else if (b.dataset.pkind) { S.pkind = b.dataset.pkind; app.innerHTML = viewLeagues(D); bind(D); }
+  };
+  const q = $('#q');
+  if (q) q.oninput = () => { S.q = q.value; const pos = q.selectionStart; app.innerHTML = viewRankings(D); bind(D); const nq = $('#q'); nq.focus(); nq.setSelectionRange(pos, pos); };
+  const vs = $('#vs');
+  if (vs) vs.onchange = () => {
+    const t = D.teams[S.team], o = D.teams[vs.value];
+    if (!o) { $('#vsout').textContent = 'Pick an opponent to see how they compare on neutral ice.'; return; }
+    const m = matchup(D, t, o);
+    $('#vsout').innerHTML = `${strengthBar(m.ph, m.pt, m.pa, t, o)}
+      <p style="margin:10px 0 0"><a href="#${S.div}-match-${t.id}-${o.id}">Full matchup report →</a></p>`;
+  };
+}
+document.addEventListener('click', e => {
+  const b = e.target.closest('#divs button'); if (!b) return;
+  const v = S.view === 'team' || GLOBAL_VIEWS.has(S.view) ? 'rankings' : S.view;
+  S.q = ''; store('rr-div', b.dataset.div); go(`${b.dataset.div}-${v}`);
+});
+window.addEventListener('hashchange', render);
+document.addEventListener('click', e => {
+  const gb = e.target.closest('#genders button');
+  if (gb && gb.dataset.gender !== S.gender) {
+    S.gender = gb.dataset.gender; store('rr-gender', S.gender); S.gamesCat = 'all'; S.recCat = 'all'; S.q = '';
+    if (S.view === 'team') go(`${S.div}-rankings`); else render();
+    return;
+  }
+  const b = e.target.closest('#levels button'); if (!b || b.dataset.level === S.level) return;
+  S.level = b.dataset.level; store('rr-level', S.level); S.gamesCat = 'all'; S.q = '';
+  if (S.view === 'team') go(`${S.div}-rankings`); else render();
+});
+document.addEventListener('click', e => {
+  const b = e.target.closest('button[data-star]'); if (!b) return;
+  e.preventDefault(); e.stopPropagation();
+  toggleStar(b.dataset.star);
+  const [div, id] = b.dataset.star.split(':');
+  document.querySelectorAll(`button[data-star="${b.dataset.star}"]`).forEach(x => { x.outerHTML = starBtn(div, +id, x.classList.contains('big')); });
+  if ($('#mine')) fillMine();
+}, true);
+function bindClubs() {
+  const app = $('#app');
+  app.onclick = e => { const b = e.target.closest('button[data-clubs]'); if (b) { S.clubAll = b.dataset.clubs === 'all'; app.innerHTML = viewClubs(S.clubs); bindClubs(); } };
+  const q = $('#cq');
+  if (q) q.oninput = () => { S.cq = q.value; const pos = q.selectionStart; app.innerHTML = viewClubs(S.clubs); bindClubs(); const nq = $('#cq'); nq.focus(); nq.setSelectionRange(pos, pos); };
+}
+
+/* ---------- tooltips: hover on desktop, tap on touch, focus for keyboards ---------- */
+const tipEl = $('#tip'); let tipFor = null, tipTimer = null;
+function showTip(el) {
+  const g = GLOSS[el.dataset.tip]; if (!g) return;
+  tipFor = el; tipEl.innerHTML = `<b>${esc(g[0])}</b>${esc(g[1])}`; tipEl.hidden = false;
+  const r = el.getBoundingClientRect(), w = tipEl.offsetWidth, h = tipEl.offsetHeight;
+  let x = Math.min(Math.max(16, r.left + r.width / 2 - w / 2), window.innerWidth - w - 16);
+  let y = r.bottom + 8; if (y + h > window.innerHeight - 8) y = Math.max(8, r.top - h - 8);
+  tipEl.style.left = x + 'px'; tipEl.style.top = y + 'px';
+}
+function hideTip() { tipEl.hidden = true; tipFor = null; clearTimeout(tipTimer); }
+document.addEventListener('mouseover', e => { if (e.pointerType === 'touch') return; const el = e.target.closest('[data-tip]'); if (el && el !== tipFor) showTip(el); else if (!el && tipFor) hideTip(); });
+document.addEventListener('focusin', e => { const el = e.target.closest('[data-tip]'); if (el) showTip(el); });
+document.addEventListener('focusout', hideTip);
+document.addEventListener('pointerdown', e => {
+  if (e.pointerType !== 'touch') return;
+  const el = e.target.closest('[data-tip]');
+  if (!el) { hideTip(); return; }
+  if (tipFor === el) { hideTip(); return; }
+  showTip(el); clearTimeout(tipTimer); tipTimer = setTimeout(hideTip, 6000);
+});
+window.addEventListener('scroll', () => { if (tipFor) hideTip(); }, { passive: true });
+document.addEventListener('keydown', e => { if (e.key === 'Escape') hideTip(); });
+
+(async function start() {
+  try { S.index = await getJSON('data/index.json'); }
+  catch (e) { $('#app').innerHTML = '<p class="loading">The ratings didn\'t load. Refresh the page to try again.</p>'; return; }
+  S.level = store('rr-level') === 'house' ? 'house' : 'rep';
+  S.gender = store('rr-gender') === 'female' ? 'female' : 'mixed';
+  const saved = store('rr-div'); if (saved && S.index.divisions.some(d => d.id === saved)) S.div = saved;
+  else if (!S.index.divisions.some(d => d.id === 'u13')) S.div = S.index.divisions[0].id;
+  render();
+})();
+</script>
