@@ -301,15 +301,28 @@ function catMean(D, cat) {
 }
 function power(D, t) { return t.net - catMean(D, t.c); }
 function poisson(l, n = 20) { const p = [Math.exp(-l)]; for (let k = 1; k <= n; k++) p.push(p[k - 1] * l / k); return p; }
-// Same flattening curve as scripts/model.py: fewer games played means less certain odds.
-const FLATTEN = [[0, 6], [1, 2.5], [2, 2], [3.5, 1.8], [5.5, 1.6], [8, 1.5], [12, 1.3], [20, 1.2]];
-function flattenFor(g) { if (g >= 20) return 1.2; for (let i = 0; i < FLATTEN.length - 1; i++) { const [g0, t0] = FLATTEN[i], [g1, t1] = FLATTEN[i + 1]; if (g >= g0 && g <= g1) return t0 + (t1 - t0) * (g - g0) / (g1 - g0); } return 6; }
-function matchup(D, h, a) {
-  const lh = h.off * a.def / D.avgGoals, la = a.off * h.def / D.avgGoals;
+// Same as scripts/model.py: the odds are averaged over how unsure we are of each
+// team's rating (t.u = offence variance, defence variance, covariance), times 3.
+const GH_X = [-4.512746, -3.205429, -2.076848, -1.023256, 0, 1.023256, 2.076848, 3.205429, 4.512746];
+const GH_W = [0.00002235, 0.00278914, 0.04991641, 0.24409750, 0.40634921, 0.24409750, 0.04991641, 0.00278914, 0.00002235];
+const UNC_SCALE = 3;
+function wtl(lh, la) {
   const ph = poisson(lh), pa = poisson(la); let H = 0, T = 0, A = 0;
   for (let i = 0; i < ph.length; i++) for (let j = 0; j < pa.length; j++) { const p = ph[i] * pa[j]; if (i > j) H += p; else if (i === j) T += p; else A += p; }
-  const tf = flattenFor(Math.min(h.gp, a.gp));
-  const q = [H, T, A].map(v => Math.pow(Math.max(v, 1e-12), 1 / tf)); q[1] *= 0.7; const s = q[0] + q[1] + q[2];
+  return [H, T, A];
+}
+function matchup(D, h, a) {
+  const lh = h.off * a.def / D.avgGoals, la = a.off * h.def / D.avgGoals;
+  const uh = h.u || [0, 0, 0], ua = a.u || [0, 0, 0];
+  const vh = UNC_SCALE * (uh[0] + ua[1]), va = UNC_SCALE * (ua[0] + uh[1]), cv = -UNC_SCALE * (uh[2] + ua[2]);
+  const c11 = Math.sqrt(Math.max(vh, 1e-12)), c21 = cv / c11, c22 = Math.sqrt(Math.max(va - c21 * c21, 1e-12));
+  const q = [0, 0, 0];
+  for (let i = 0; i < 9; i++) for (let j = 0; j < 9; j++) {
+    const w = GH_W[i] * GH_W[j]; if (w < 1e-7) continue;
+    const r = wtl(Math.min(Math.max(lh * Math.exp(c11 * GH_X[i]), 0.02), 30), Math.min(Math.max(la * Math.exp(c21 * GH_X[i] + c22 * GH_X[j]), 0.02), 30));
+    q[0] += w * r[0]; q[1] += w * r[1]; q[2] += w * r[2];
+  }
+  const s = q[0] + q[1] + q[2];
   // Same as display_goals in model.py: big predicted margins are scaled back past 4 goals.
   let eh = lh, ea = la; const mg = Math.abs(lh - la);
   if (mg > 4) { const adj = 4 + (mg - 4) * 0.65; if (lh >= la) eh = la + adj; else ea = lh + adj; }
@@ -680,13 +693,13 @@ function viewMethod() {
   <p>Each team gets an offence rating and a defence rating. A team's expected goals in a game depend on its offence and the opponent's defence. The ratings are the values that best explain every score this season. Scores are capped at nine goals per side, so a 15-0 mismatch doesn't count more than a 9-0.</p>
   <p>Each team starts the season from two clues, weighted equally. One is last season's rating for the same slot: same association, age group and team number, such as Vancouver Thunderbird U13 A2. The other follows the players: the average standing of the teams this season's players played for last year. A player moving up from U11 counts at their old team's standing in U11, so a kid from a top-10% U11 team counts as top-10% material. This season's results then take over, and after about ten games the starting point barely matters.</p>
   <p>Why both? In a normal year clubs move players through the same slots, and the slot alone is slightly better. But when programs change, following the players catches it. In 2026-27 the new U13 AA league drew top players away from several associations' A teams. Over each U13 A team's first five games this season, following the players called ${S.index.evaluation && S.index.evaluation.u13aThisSeason ? Math.round(S.index.evaluation.u13aThisSeason.blend * 100) : 64}% of winners against ${S.index.evaluation && S.index.evaluation.u13aThisSeason ? Math.round(S.index.evaluation.u13aThisSeason.slot * 100) : 61}% for the slot alone. The 50/50 mix is the only version that did as well or better in every season tested.</p>
-  <p>Power is the goal differential per game you'd expect against an average team in the same category. Win, tie and loss chances come from the two teams' expected goals, with two corrections found by testing. The raw odds are too confident, especially when a team has played only a few games, so they're flattened. A lot in a team's first game, less as games come in, and only a little after about 15 games. And the raw model expects too many ties, so tie chances are trimmed. Expected scores are trimmed too in big mismatches, where the favourite tends to ease off: past a four-goal margin, the shown margin is scaled back to match what actually happened in three seasons of games.</p>
+  <p>Power is the goal differential per game you'd expect against an average team in the same category. Win, tie and loss chances come from the two teams' expected goals, averaged over how sure the model is of each team. A team with only a few games, or whose games are mostly against teams with few links to the rest of the league, could plausibly be a lot better or worse than its rating, so its odds stay closer to even. A team with a full season against well-connected opponents gets sharper odds. How wide that range should be was tuned on past seasons, and the projections use the same uncertainty when they play out the rest of a league. Expected scores are trimmed in big mismatches, where the favourite tends to ease off: past a four-goal margin, the shown margin is scaled back to match what actually happened in three seasons of games.</p>
   <p>On the site, game odds appear as a strength bar with plain words (Even, Slight edge, Clear edge, Strong favourite) rather than percentages. These are kids' games, and "a 4% chance" on a public page about a team of eleven-year-olds isn't something we want to publish. The numbers behind the bars are the same ones graded below.</p>
   <h2>Does it work?</h2>
   ${ev ? `<p>We replayed three full seasons, ${ev.games.toLocaleString()} games in all. Each week the model was fitted only on games already played and asked to call the next week. Each season was graded with settings fitted on the other two, so no season marks its own homework.</p>
   <div class="tframe" style="margin:8px 0 14px"><table><thead><tr><th class="l">Season</th><th>Games</th><th>Winner called</th><th class="hide-sm">${tipSpan('logloss', 'Odds error')}</th><th class="hide-sm">Before tuning</th></tr></thead>
   <tbody>${ev.seasons.map(x => `<tr><td class="l">${esc(x.season)}</td><td class="num">${x.games.toLocaleString()}</td><td class="num">${pc(x.accuracy)}</td><td class="num hide-sm">${x.logLoss.toFixed(3)}</td><td class="num hide-sm">${x.beforeLogLoss.toFixed(3)}</td></tr>`).join('')}</tbody></table></div>
-  <p>The model calls about ${Math.round(ev.accuracy * 100)}% of winners across every game, including teams' first games of the season, and about 72% once both teams have three games in. On ${'2025-26'}, picking the team with the better record got about ${Math.round(ev.baselineRecord2025 * 100)}%. Odds error (lower is better) measures how good the percentages are, not just the picks; tuning cut it by 4 to 5% in every season.</p>
+  <p>The model calls about ${Math.round(ev.accuracy * 100)}% of winners across every game, including teams' first games of the season, and about ${Math.round((ev.accuracy3plus || 0.72) * 100)}% once both teams have three games in. On ${'2025-26'}, picking the team with the better record got about ${Math.round(ev.baselineRecord2025 * 100)}%. Odds error (lower is better) measures how good the percentages are, not just the picks; accounting for how sure the model is of each team cut it by 7 to 11% in every season.</p>
   <h3>When it says 70%…</h3>
   <p>If the odds are honest, teams given 70% win about 70% of the time. Across all three seasons:</p>${cal}
   <h3>Where it's stronger and weaker</h3>
