@@ -1,0 +1,127 @@
+{
+ "seasons": [
+  {
+   "season": "2023-24",
+   "games": 14827,
+   "accuracy": 0.7076,
+   "logLoss": 0.8415,
+   "beforeAccuracy": 0.7076,
+   "beforeLogLoss": 0.8752
+  },
+  {
+   "season": "2024-25",
+   "games": 14979,
+   "accuracy": 0.7006,
+   "logLoss": 0.8469,
+   "beforeAccuracy": 0.6963,
+   "beforeLogLoss": 0.8952
+  },
+  {
+   "season": "2025-26",
+   "games": 15908,
+   "accuracy": 0.7115,
+   "logLoss": 0.834,
+   "beforeAccuracy": 0.7096,
+   "beforeLogLoss": 0.8654
+  }
+ ],
+ "games": 45714,
+ "accuracy": 0.7066,
+ "calibration": [
+  {
+   "predicted": 0.544,
+   "actual": 0.551,
+   "games": 12459
+  },
+  {
+   "predicted": 0.649,
+   "actual": 0.657,
+   "games": 9098
+  },
+  {
+   "predicted": 0.748,
+   "actual": 0.749,
+   "games": 7705
+  },
+  {
+   "predicted": 0.849,
+   "actual": 0.842,
+   "games": 6210
+  },
+  {
+   "predicted": 0.951,
+   "actual": 0.935,
+   "games": 5348
+  }
+ ],
+ "byAge": {
+  "U11": {
+   "games": 10416,
+   "accuracy": 0.7263
+  },
+  "U13": {
+   "games": 12911,
+   "accuracy": 0.7151
+  },
+  "U15": {
+   "games": 11243,
+   "accuracy": 0.7011
+  },
+  "U18": {
+   "games": 11144,
+   "accuracy": 0.6833
+  }
+ },
+ "byLevel": {
+  "House": {
+   "games": 25899,
+   "accuracy": 0.7077
+  },
+  "Rep": {
+   "games": 19815,
+   "accuracy": 0.7052
+  }
+ },
+ "byType": {
+  "League": {
+   "games": 20327,
+   "accuracy": 0.7164
+  },
+  "Placement": {
+   "games": 5365,
+   "accuracy": 0.7151
+  },
+  "Playoffs": {
+   "games": 7745,
+   "accuracy": 0.7148
+  },
+  "Tournament": {
+   "games": 12277,
+   "accuracy": 0.6829
+  }
+ },
+ "byGames": {
+  "0 games": {
+   "games": 5145,
+   "accuracy": 0.5695
+  },
+  "1-2 games": {
+   "games": 3051,
+   "accuracy": 0.6974
+  },
+  "10+ games": {
+   "games": 27656,
+   "accuracy": 0.7268
+  },
+  "3-9 games": {
+   "games": 9862,
+   "accuracy": 0.7272
+  }
+ },
+ "baselineRecord2025": 0.666,
+ "u13aThisSeason": {
+  "games": 382,
+  "slot": 0.6114,
+  "blend": 0.6371
+ }
+}
