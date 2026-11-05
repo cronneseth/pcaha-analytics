@@ -17,7 +17,7 @@ from zoneinfo import ZoneInfo
 import numpy as np
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-from model import fit, season_prior, display_goals  # noqa: E402
+from model import fit, season_prior, display_goals, PROJ_SCALE  # noqa: E402
 from roster import roster_prior, BELOW  # noqa: E402
 import gzip  # noqa: E402
 
@@ -269,7 +269,7 @@ def build_division(div, data_dir, sheets, sched_meta, today, pred_log):
 
     # ---- ratings ---------------------------------------------------------
     prior = starting_ratings(data_dir, div, games)
-    model = fit(finals, prior=prior)
+    model = fit(finals, prior=prior, uncertainty=True)
     two_weeks_ago = (today - dt.timedelta(days=14)).isoformat()
     earlier = [g for g in finals if g['date'] < two_weeks_ago]
     model_prev = fit(earlier, prior=prior) if len(earlier) > 20 else None
@@ -327,7 +327,7 @@ def build_division(div, data_dir, sheets, sched_meta, today, pred_log):
         todays = by_date[d]
         if len(done) >= 20:
             need_fit = any(str(g['id']) not in frozen for g in todays)
-            m = fit(done, prior=prior) if need_fit else None
+            m = fit(done, prior=prior, uncertainty=True) if need_fit else None
             for g in todays:
                 h, a = g['homeTeamId'], g['awayTeamId']
                 if gp_before[h] < 3 or gp_before[a] < 3:
@@ -470,6 +470,7 @@ def build_division(div, data_dir, sheets, sched_meta, today, pred_log):
             'tier': info.get('tier'),
             'hist': hist.get(tid, []),
             'carried': tid in prior,
+            'u': [round(v, 4) for v in model.team_uncertainty(tid)],  # replaced below for ranked teams
         }
 
     # ---- ranks within category -------------------------------------------
@@ -502,6 +503,18 @@ def build_division(div, data_dir, sheets, sched_meta, today, pred_log):
                 below = sum(1 for x in vals if (x < v if rev else x > v))
                 t.setdefault('pct', {})[key] = r1(below / max(len(vals) - 1, 1) * 100, 0)
         cat_out.append({'c': c, 'n': n, 'teams': [t['id'] for t in lst]})
+        # Rating uncertainty for the site's matchup check (offence variance, defence
+        # variance, covariance), measured against the category average. That strips
+        # out what teams in a category share, so adding two teams' numbers gives
+        # odds within about a point of the build's own (checked on 320 pairs).
+        ix = [model.idx[t['id']] for t in lst]
+        if len(ix) > 1:
+            nn = len(model.team_ids)
+            Pm = np.eye(len(ix)) - 1.0 / len(ix)
+            blocks = [Pm @ model.cov[np.ix_([o1 + i for i in ix], [o2 + i for i in ix])] @ Pm.T
+                      for o1, o2 in ((0, 0), (nn, nn), (0, nn))]
+            for j, t in enumerate(lst):
+                t['u'] = [round(float(b[j, j]), 4) for b in blocks]
     cat_out.sort(key=lambda c: (not c['c'].endswith('Female'), c['c']), reverse=False)
     cat_out.sort(key=lambda c: (c['c'].endswith('Female'), c['c']))
 
@@ -613,11 +626,21 @@ def build_division(div, data_dir, sheets, sched_meta, today, pred_log):
             hi = np.array([pos[g['homeTeamId']] for g in rem])
             ai = np.array([pos[g['awayTeamId']] for g in rem])
             # Ratings are estimates. Each simulated season draws its own version of
-            # every team's strength, with more spread for teams with few games.
-            gp_all = np.array([T[t]['gp'] if t in T else 0 for t in tids], float)
-            sd = 0.22 * np.sqrt(8 / (gp_all + 8))
-            na = rng.normal(0, 1, (SIMS, len(tids))) * sd
-            nd = rng.normal(0, 1, (SIMS, len(tids))) * sd
+            # every team's strength from the fit's uncertainty (wider for teams with
+            # few games or few links to the rest of the league), so the chances
+            # reflect how sure we really are. Backtested in test_proj.py.
+            n_all = len(model.team_ids)
+            known = [i for i, t in enumerate(tids) if model.has(t)]
+            ci = [model.idx[tids[i]] for i in known]
+            na = rng.normal(0, 0.3, (SIMS, len(tids)))   # teams with no games yet
+            nd = rng.normal(0, 0.3, (SIMS, len(tids)))
+            if known:
+                sub = np.ix_(ci + [n_all + c for c in ci], ci + [n_all + c for c in ci])
+                C = model.cov[sub] * PROJ_SCALE
+                ev, V = np.linalg.eigh((C + C.T) / 2)
+                draw = rng.normal(0, 1, (SIMS, len(ev))) @ (V * np.sqrt(np.maximum(ev, 0))).T
+                na[:, known] = draw[:, :len(ci)]
+                nd[:, known] = draw[:, len(ci):]
             lh = lam[:, 0] * np.exp(na[:, hi] - nd[:, ai])
             la = lam[:, 1] * np.exp(na[:, ai] - nd[:, hi])
             hg = rng.poisson(lh)
