@@ -11,6 +11,7 @@ Usage: python evaluate.py <pcaha-stats data dir> <out.pkl> key=value ...
 import datetime as dt
 import gzip
 import json
+import math
 import os
 import pickle
 import sys
@@ -93,7 +94,34 @@ def lineup_info(data):
     return _SHEETS
 
 
-def run(data, lam, cap, hl, carry, mode='slot', young=0.6, rescale=True, b2b=False, bench=False, goalie=False):
+def flight_info(data, season, div):
+    """teamId -> (z, league start date): the team's league group number (Flight 3,
+    Tier 2), centred and scaled within its league. Known from the day the league starts."""
+    import re
+    if season == SEASONS[-1]:
+        p = os.path.join(data, 'standings', f'{div}.json')
+        st = json.load(open(p)) if os.path.exists(p) else {}
+    else:
+        p = os.path.join(data, 'seasons', season, 'standings', f'{div}.json.gz')
+        st = json.load(gzip.open(p)) if os.path.exists(p) else {}
+    meta = schedules(data, season)
+    out = {}
+    for sid, s in st.items():
+        kind = s.get('scheduleType') or meta.get(int(sid), {}).get('scheduleType')
+        if kind != 'League' or not s.get('startDate'):
+            continue
+        nums = {t['teamId']: int(m.group(1)) for t in s['teams']
+                if (m := re.search(r'(\d+)', t.get('groupName') or ''))}
+        if len(set(nums.values())) < 2:
+            continue
+        v = list(nums.values()); mu = sum(v) / len(v); sd = (sum((x - mu) ** 2 for x in v) / len(v)) ** 0.5 or 1
+        for t, n in nums.items():
+            out[t] = ((n - mu) / sd, s['startDate'][:10])
+    return out
+
+
+def run(data, lam, cap, hl, carry, mode='slot', young=0.6, rescale=True, b2b=False, bench=False, goalie=False,
+        impact=0.0, impact_att=False, flight=False):
     rows = []
     for si, season in enumerate(SEASONS):
         meta = schedules(data, season)
@@ -111,7 +139,7 @@ def run(data, lam, cap, hl, carry, mode='slot', young=0.6, rescale=True, b2b=Fal
                     if BELOW.get(div):
                         pg[BELOW[div]] = load(data, SEASONS[si - 1], BELOW[div])[0]
                     ids = {x['homeTeamId'] for x in games} | {x['awayTeamId'] for x in games}
-                    ros = roster_prior(data, div, SEASONS[si - 1], None if season == SEASONS[-1] else season, pg, ids, young=young, rescale=rescale, lam=lam, cap=cap)
+                    ros = roster_prior(data, div, SEASONS[si - 1], None if season == SEASONS[-1] else season, pg, ids, young=young, rescale=rescale, impact=impact, impact_att_only=impact_att, lam=lam, cap=cap)
                     ros = {t: (a * carry, d * carry) for t, (a, d) in ros.items()}
                 if mode == 'blend':
                     prior = dict(slot)
@@ -121,6 +149,7 @@ def run(data, lam, cap, hl, carry, mode='slot', young=0.6, rescale=True, b2b=Fal
                     prior = slot if mode == 'slot' else {**slot, **ros} if mode == 'roster' else slot
             B2B = b2b_flags(games) if b2b else {}
             LI = lineup_info(data) if (bench or goalie) else {}
+            FL = flight_info(data, season, div) if flight else {}
             dates = sorted(x['date'] for x in games)
             start = dt.date.fromisoformat(dates[0])
             d = start + dt.timedelta(days=7)
@@ -135,9 +164,10 @@ def run(data, lam, cap, hl, carry, mode='slot', young=0.6, rescale=True, b2b=Fal
                         gp[x['homeTeamId']] += 1
                         gp[x['awayTeamId']] += 1
                     feats = gl = None
-                    if b2b or bench:
+                    zf = lambda t: FL[t][0] if t in FL and FL[t][1] <= ds else 0.0
+                    if b2b or bench or flight:
                         def fv(x, t):
-                            v = []
+                            v = [zf(t)] if flight else []
                             if b2b:
                                 v.append(min(B2B.get((x['id'], t), 0), 2))
                             if bench:
@@ -150,10 +180,13 @@ def run(data, lam, cap, hl, carry, mode='slot', young=0.6, rescale=True, b2b=Fal
                             li = LI.get(x['id'], {}).get(t)
                             return {k: 1 / len(li[1]) for k in li[1]} if li and li[1] else {}
                         gl = [(gw(x, x['homeTeamId']), gw(x, x['awayTeamId'])) for x in past]
-                    m = fit(past, lam=lam, prior=prior, cap=cap, half_life=hl or None, as_of=ds, feats=feats, goalies=gl)
+                    m = fit(past, lam=lam, prior=prior, cap=cap, half_life=hl or None, as_of=ds, feats=feats, goalies=gl,
+                            uncertainty=not gl)
                     for x in nxt:
                         h, a = x['homeTeamId'], x['awayTeamId']
                         xh = xa = None
+                        if flight and not b2b:
+                            xh, xa = [zf(h)] + ([0.0] if bench else []), [zf(a)] + ([0.0] if bench else [])
                         if b2b:  # only the schedule is known before a game, not the bench
                             xh = [min(B2B.get((x['id'], h), 0), 2)] + ([0.0] if bench else [])
                             xa = [min(B2B.get((x['id'], a), 0), 2)] + ([0.0] if bench else [])
@@ -168,6 +201,9 @@ def run(data, lam, cap, hl, carry, mode='slot', young=0.6, rescale=True, b2b=Fal
                             'res': 0 if x['homeScore'] > x['awayScore'] else 2 if x['awayScore'] > x['homeScore'] else 1,
                             'b2b': (B2B.get((x['id'], h), 0), B2B.get((x['id'], a), 0)) if b2b else None,
                             'hs': x['homeScore'], 'as': x['awayScore'],
+                            'gph': gp[h], 'gpa': gp[a],
+                            'eta': (math.log(lh), math.log(la)),
+                            'cov': m.eta_cov(h, a).tolist() if m.cov is not None else None,
                         })
                 d += dt.timedelta(days=7)
     return rows
@@ -180,7 +216,8 @@ if __name__ == '__main__':
     model.TEMPERATURE = 1.0  # save raw odds (no curve, no tie factor); flattening is fitted afterwards
     rows = run(data, float(kw.get('lam', 0.25)), float(kw.get('cap', 9)), float(kw.get('hl', 0)), float(kw.get('carry', 0.4)),
                kw.get('mode', 'slot'), float(kw.get('young', 0.6)), kw.get('rescale', '1') == '1',
-               kw.get('b2b') == '1', kw.get('bench') == '1', kw.get('goalie') == '1')
+               kw.get('b2b') == '1', kw.get('bench') == '1', kw.get('goalie') == '1',
+               float(kw.get('impact', 0)), kw.get('impact_att') == '1', kw.get('flight') == '1')
     with open(out, 'wb') as f:
         pickle.dump(rows, f)
     print(out, len(rows))

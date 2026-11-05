@@ -23,6 +23,13 @@ DEFAULT_LAMBDA = 0.25  # ridge strength; 0.15-0.4 all score the same across thre
 FLATTEN = [(0, 6.0), (1, 2.5), (2, 2.0), (3.5, 1.8), (5.5, 1.6), (8, 1.5), (12, 1.3), (20, 1.2)]
 TIE_FACTOR = 0.7  # the model expected ~14.5% ties; 11.3% actually happen
 TEMPERATURE = None  # set to a number to override the curve (evaluate.py saves raw odds with 1.0)
+# Odds now come from each team's own rating uncertainty (fit(..., uncertainty=True)):
+# the curve above is only a fallback. Replaying 2023-24 to 2026-27, with each season
+# held out in turn, the uncertainty times 3 gave the best odds in every season, and
+# no tie trim was needed (score_unc.py). Season simulations use it times 2 (test_proj.py).
+UNC_SCALE = 3.0
+UNC_TIE = 1.0
+PROJ_SCALE = 2.0
 
 
 def display_goals(lh, la):
@@ -35,6 +42,30 @@ def display_goals(lh, la):
     if m > 4:
         hi = lo + 4 + (m - 4) * 0.65
     return (hi, lo) if fav_home else (lo, hi)
+
+
+_GH_X, _GH_W = np.polynomial.hermite_e.hermegauss(9)
+_GH_W = _GH_W / _GH_W.sum()
+
+
+def probs_from_eta(eh, ea, cov, tie=TIE_FACTOR):
+    """Home/tie/away chances when the log expected goals are themselves uncertain
+    (normal with covariance cov), by 9x9 Gauss-Hermite quadrature."""
+    from scipy.stats import skellam
+    L = np.linalg.cholesky(cov + np.eye(2) * 1e-12)
+    z1, z2 = np.meshgrid(_GH_X, _GH_X, indexing='ij')
+    wts = np.outer(_GH_W, _GH_W).ravel()
+    z = np.stack([z1.ravel(), z2.ravel()])
+    e = L @ z
+    lh = np.exp(eh + e[0])
+    la = np.exp(ea + e[1])
+    lh, la = np.clip(lh, 0.02, 30), np.clip(la, 0.02, 30)  # keep the far tails finite
+    p_tie = skellam.pmf(0, lh, la)
+    p_home = skellam.sf(0, lh, la)
+    p_away = 1 - p_home - p_tie
+    q = np.array([wts @ p_home, (wts @ p_tie) * tie, wts @ p_away])
+    q = np.maximum(q, 1e-12)
+    return tuple(q / q.sum())
 
 
 def flatten_for(games_played):
@@ -98,11 +129,48 @@ class Model:
         if raw or TEMPERATURE == 1.0:
             s = p_home + p_tie + p_away
             return p_home / s, p_tie / s, p_away / s
+        if self.cov is not None and TEMPERATURE is None and xh is None and xa is None:
+            return probs_from_eta(math.log(lh), math.log(la), self.eta_cov(home_id, away_id) * UNC_SCALE, UNC_TIE)
         T = TEMPERATURE or flatten_for(min(self.played.get(home_id, 0), self.played.get(away_id, 0)))
         q = [max(v, 1e-12) ** (1 / T) for v in (p_home, p_tie, p_away)]
         q[1] *= TIE_FACTOR
         s = sum(q)
         return q[0] / s, q[1] / s, q[2] / s
+
+    cov = None
+
+    def _vec(self, home_id, away_id):
+        """Index/sign pairs for the home and away log expected goals."""
+        n = len(self.team_ids)
+        h, a = self.idx.get(home_id), self.idx.get(away_id)
+        xh = [(2 * n, 1.0), (2 * n + 1, 1.0)] + ([(h, 1.0)] if h is not None else []) + ([(n + a, -1.0)] if a is not None else [])
+        xa = [(2 * n, 1.0)] + ([(a, 1.0)] if a is not None else []) + ([(n + h, -1.0)] if h is not None else [])
+        return xh, xa
+
+    def eta_cov(self, home_id, away_id):
+        """2x2 covariance of (log home goals, log away goals) from rating uncertainty.
+        Teams the fit has never seen get the full prior spread."""
+        C = self.cov
+        xh, xa = self._vec(home_id, away_id)
+        q = lambda u, v: sum(su * sv * C[i, j] for i, su in u for j, sv in v)
+        vh, va, cha = q(xh, xh), q(xa, xa), q(xh, xa)
+        unseen = 1.0 / (2 * DEFAULT_LAMBDA)
+        vh += unseen * ((home_id not in self.idx) + (away_id not in self.idx))
+        va += unseen * ((home_id not in self.idx) + (away_id not in self.idx))
+        return np.array([[vh, cha], [cha, va]])
+
+    def outcome_probs_unc(self, home_id, away_id, scale=1.0, tie=None, neutral=False):
+        """Win/tie/loss chances averaged over how unsure we are of both teams,
+        instead of flattening by games played."""
+        lh, la = self.expected_goals(home_id, away_id, neutral)
+        return probs_from_eta(math.log(lh), math.log(la), self.eta_cov(home_id, away_id) * scale,
+                              TIE_FACTOR if tie is None else tie)
+
+    def team_uncertainty(self, t):
+        """(variance of offence, variance of defence, their covariance) on the log scale."""
+        n, i = len(self.team_ids), self.idx[t]
+        C = self.cov
+        return float(C[i, i]), float(C[n + i, n + i]), float(C[i, n + i])
 
     def team_summary(self, t):
         """Goals for/against per game against an average opponent on neutral ice."""
@@ -113,7 +181,7 @@ class Model:
 
 
 def fit(games, lam=DEFAULT_LAMBDA, prior=None, cap=None, half_life=None, as_of=None,
-        feats=None, goalies=None, lam_f=0.5, lam_g=3.0):
+        feats=None, goalies=None, lam_f=0.5, lam_g=3.0, uncertainty=False):
     """games: list of dicts with homeTeamId, awayTeamId, homeScore, awayScore.
 
     prior: optional {teamId: (attack, defence)} starting point, e.g. carried over
@@ -220,7 +288,32 @@ def fit(games, lam=DEFAULT_LAMBDA, prior=None, cap=None, half_life=None, as_of=N
     for g in games:
         played[g['homeTeamId']] = played.get(g['homeTeamId'], 0) + 1
         played[g['awayTeamId']] = played.get(g['awayTeamId'], 0) + 1
-    return Model(teams, att, dfn, float(base), float(home), played, b, c, goalie_q, mix)
+    m = Model(teams, att, dfn, float(base), float(home), played, b, c, goalie_q, mix)
+    if uncertainty:
+        # How sure the fit is of each rating: the inverse of the curvature of the
+        # fitted likelihood (a Laplace approximation). A team with few games, or
+        # games only against poorly connected opponents, gets a wide spread.
+        eta_h = base + home + att[hi] - dfn[ai]
+        eta_a = base + att[ai] - dfn[hi]
+        if K:
+            eta_h = eta_h + Xh @ b + Xa @ c
+            eta_a = eta_a + Xa @ b + Xh @ c
+        mu_h, mu_a = w * np.exp(eta_h), w * np.exp(eta_a)
+        P = 2 * n + 2
+        H = np.zeros((P, P))
+        sign = np.array([1.0, -1.0, 1.0, 1.0])
+        for rows_idx, mu, s in (
+            (np.stack([hi, n + ai, np.full(G, 2 * n), np.full(G, 2 * n + 1)], 1), mu_h, sign),
+            (np.stack([ai, n + hi, np.full(G, 2 * n)], 1), mu_a, sign[:3]),
+        ):
+            k = rows_idx.shape[1]
+            r = np.repeat(rows_idx, k, axis=1).ravel()
+            c_ = np.tile(rows_idx, (1, k)).ravel()
+            v = (mu[:, None] * np.outer(s, s).ravel()[None, :]).ravel()
+            np.add.at(H, (r, c_), v)
+        H[np.arange(2 * n), np.arange(2 * n)] += 2 * lam
+        m.cov = np.linalg.pinv(H)
+    return m
 
 
 def team_key(name):

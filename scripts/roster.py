@@ -39,6 +39,26 @@ def primary_teams(data, season, divs):
     return {p: cnt.most_common(1)[0][0] for p, cnt in c.items()}
 
 
+def player_impact(data, season, divs, primary):
+    """participantId -> weight from last season's scoring: the player's points per
+    game relative to their team's average, smoothed so a player with no points
+    (often a goalie or a stay-at-home defender) still counts for half."""
+    pts, gp = collections.Counter(), collections.Counter()
+    for div in divs:
+        for r in player_rows(data, season, div):
+            p = r.get('participantId')
+            if p in primary and primary[p][1] == r.get('teamId'):
+                pts[p] += r.get('points') or 0
+                gp[p] += r.get('gamesPlayed') or 0
+    ppg = {p: pts[p] / gp[p] for p in gp if gp[p] >= 3}
+    by_team = collections.defaultdict(list)
+    for p, v in ppg.items():
+        by_team[primary[p]].append(v)
+    mean = {t: sum(v) / len(v) for t, v in by_team.items()}
+    return {p: (v + mean[primary[p]]) / (2 * mean[primary[p]]) if mean[primary[p]] > 0 else 1.0
+            for p, v in ppg.items()}
+
+
 def _percentile(sorted_vals, v):
     if not sorted_vals:
         return 0.5
@@ -53,12 +73,16 @@ def _quantile(sorted_vals, q):
     return sorted_vals[int(round(q * (len(sorted_vals) - 1)))]
 
 
-def roster_prior(data, div, prev_season, cur_season, prev_games_by_div, cur_team_ids, young=0.6, rescale=True, **fit_kw):
+def roster_prior(data, div, prev_season, cur_season, prev_games_by_div, cur_team_ids, young=0.6, rescale=True,
+                 impact=0.0, impact_att_only=False, **fit_kw):
     """{teamId: (attack, defence)} for current teams with enough traced players.
 
     prev_games_by_div: {div: [final games last season]} for div and the age group below.
     young: how much of a moving-up player's standing carries over (1.0 = all of it;
     0.5 = halfway back to the middle), since first-years are the youngest players.
+    impact: 0 counts every traced player equally; 1 weights each by last season's
+    scoring share (player_impact); values between soften it. impact_att_only
+    applies the weights to the offence rating only.
     """
     below = BELOW.get(div)
     models, dist = {}, {}
@@ -73,6 +97,7 @@ def roster_prior(data, div, prev_season, cur_season, prev_games_by_div, cur_team
         return {}
     prev = primary_teams(data, prev_season, [x for x in (div, below) if x])
     cur = primary_teams(data, cur_season, [div])
+    wt = player_impact(data, prev_season, [x for x in (div, below) if x], prev) if impact else {}
     roster = collections.defaultdict(list)
     for p, (_, t) in cur.items():
         if t in cur_team_ids:
@@ -89,15 +114,19 @@ def roster_prior(data, div, prev_season, cur_season, prev_games_by_div, cur_team
             if not m or not m.has(old_team):
                 continue
             i = m.idx[old_team]
+            w = wt.get(p, 1.0) ** impact
             if d == div:
-                vals.append((m.attack[i], m.defence[i]))
+                vals.append((m.attack[i], m.defence[i], w))
             else:
                 a_src, d_src = dist[d]
                 qa = 0.5 + (_percentile(a_src, m.attack[i]) - 0.5) * young
                 qd = 0.5 + (_percentile(d_src, m.defence[i]) - 0.5) * young
-                vals.append((_quantile(att_same, qa), _quantile(def_same, qd)))
+                vals.append((_quantile(att_same, qa), _quantile(def_same, qd), w))
         if len(vals) >= MIN_TRACED:
-            out[t] = (sum(v[0] for v in vals) / len(vals), sum(v[1] for v in vals) / len(vals))
+            wa = sum(v[2] for v in vals)
+            att = sum(v[0] * v[2] for v in vals) / wa
+            dfn = (sum(v[1] for v in vals) / len(vals)) if impact_att_only else sum(v[1] * v[2] for v in vals) / wa
+            out[t] = (att, dfn)
     if rescale and len(out) >= 10:
         # Averaging a roster pulls every team toward the middle. Stretch the
         # roster ratings back out to the spread team ratings normally have.
