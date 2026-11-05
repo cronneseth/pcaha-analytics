@@ -43,7 +43,7 @@ def base_card(eyebrow):
     d.rectangle([0, 0, W, 12], fill=BLUE)
     d.rectangle([W * 2 // 5, 0, W * 3 // 5, 12], fill=RED)
     d.text((60, 44), BRAND.upper(), font=font(34), fill=INK)
-    d.text((60 + d.textlength(BRAND.upper(), font=font(34)) + 18, 52), 'PCAHA analytics', font=font(24), fill=MUTED)
+    d.text((60 + d.textlength(BRAND.upper(), font=font(34)) + 18, 52), 'Independent minor hockey stats', font=font(24), fill=MUTED)
     d.text((60, 120), eyebrow.upper(), font=font(26), fill=MUTED)
     return im, d
 

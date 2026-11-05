@@ -14,7 +14,7 @@ An independent site, not affiliated with PCAHA, BC Hockey or Spordle.
 
 - `scripts/model.py`: the rating model (Poisson offence/defence ratings, odds flattening by games played, tie and blowout corrections).
 - `scripts/roster.py`: starting ratings that follow players from last season's teams; blended 50/50 with last season's slot rating in `build.py`.
-- `scripts/build.py`: ratings, schedule strength, luck, form, special teams, period splits, game odds, upsets, league projections.
+- `scripts/build.py`: ratings, schedule strength, record vs play, form, special teams, period splits, game odds, upsets, league projections.
 - `scripts/evaluate.py` and `scripts/score_eval.py`: replay past seasons week by week and score the odds, holding each season out in turn. `evaluation-3-seasons.json` feeds the How it works page.
 - `site/index.html`: the whole site (no build tools). Data lives in `site/data/`.
 
