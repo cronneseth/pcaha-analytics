@@ -297,9 +297,12 @@ def build_division(div, data_dir, sheets, sched_meta, today, pred_log):
                 by_cat[(info['cat'], info['rg'])].append((m.team_summary(tid)[2], tid))
         cat_means = defaultdict(list)
         for (c, rg), lst in by_cat.items():
-            cat_means[c] += [v for v, _ in lst]
+            if rg != 'visitor':  # visiting tournament teams don't set the category average
+                cat_means[c] += [v for v, _ in lst]
         label = (cp - dt.timedelta(days=1)).isoformat()
         for (c, rg), lst in by_cat.items():
+            if not cat_means[c]:
+                continue
             mean = sum(cat_means[c]) / len(cat_means[c])
             lst.sort(reverse=True)
             for i, (v, tid) in enumerate(lst):
@@ -472,7 +475,9 @@ def build_division(div, data_dir, sheets, sched_meta, today, pred_log):
     # ---- ranks within category -------------------------------------------
     cats = defaultdict(list)
     for tid, t in teams_out.items():
-        cats[t['c']].append(t)
+        t['rank'] = t['of'] = t['cpct'] = t['move'] = None
+        if t['rg'] != 'visitor':  # rankings cover PCAHA and Island teams; visitors aren't ranked
+            cats[t['c']].append(t)
     cat_out = []
     for c, lst in cats.items():
         lst.sort(key=lambda t: -t['net'])

@@ -60,7 +60,7 @@ def ranks(D):
     out = {}
     for c in D['cats']:
         ts = [D['teams'][str(i)] for i in c['teams']]
-        for rg in ('pcaha', 'island', 'visitor'):
+        for rg in ('pcaha', 'island'):
             lst = sorted([t for t in ts if t['rg'] == rg], key=lambda t: -t['net'])
             for i, t in enumerate(lst):
                 out[t['id']] = (i + 1, len(lst))
@@ -68,7 +68,7 @@ def ranks(D):
 
 
 def cat_mean(D, cat):
-    v = [t['net'] for t in D['teams'].values() if t['c'] == cat]
+    v = [t['net'] for t in D['teams'].values() if t['c'] == cat and t['rg'] != 'visitor']
     return sum(v) / max(len(v), 1)
 
 
