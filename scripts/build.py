@@ -542,7 +542,43 @@ def build_division(div, data_dir, sheets, sched_meta, today, pred_log):
     # ---- league projections -----------------------------------------------
     rng = np.random.default_rng(20261104)
     projections = []
-    for sid, s in standings.items():
+    # Leagues that have just started often have games but no published standings
+    # table yet (U13 A League in early November). Build their table from results.
+    all_scheds = dict(standings)
+    for sid_s, lst in games_by_sched.items():
+        if sid_s in all_scheds:
+            continue
+        meta = sched_meta.get(int(sid_s), {})
+        if meta.get('scheduleType') not in ('League', 'Playoffs', 'Tournament'):
+            continue
+        tbl = {}
+        for g in lst:
+            for side in ('home', 'away'):
+                tid = g[f'{side}TeamId']
+                if tid:
+                    tbl.setdefault(tid, {'teamId': tid, 'teamName': g[f'{side}TeamName'], 'points': 0, 'diff': 0,
+                                         'gamesPlayed': 0, 'wins': 0, 'losses': 0, 'ties': 0, 'groupName': None})
+        seen_ids = set()
+        for g in lst:
+            if g['status'] != 'final' or g['homeScore'] is None or g['id'] in seen_ids:
+                continue
+            seen_ids.add(g['id'])
+            for me, gf, ga in ((g['homeTeamId'], g['homeScore'], g['awayScore']), (g['awayTeamId'], g['awayScore'], g['homeScore'])):
+                if me not in tbl:
+                    continue
+                r = tbl[me]
+                r['gamesPlayed'] += 1
+                r['diff'] += gf - ga
+                if gf > ga:
+                    r['wins'] += 1; r['points'] += 2
+                elif gf == ga:
+                    r['ties'] += 1; r['points'] += 1
+                else:
+                    r['losses'] += 1
+        all_scheds[sid_s] = {'scheduleName': meta.get('name'), 'scheduleType': meta.get('scheduleType'),
+                             'categoryName': meta.get('categoryName'), 'startDate': meta.get('startDate'),
+                             'endDate': meta.get('endDate'), 'teams': list(tbl.values()), 'built': True}
+    for sid, s in all_scheds.items():
         sid = int(sid)
         meta = sched_meta.get(sid, {})
         kind = s.get('scheduleType') or meta.get('scheduleType')
@@ -555,6 +591,8 @@ def build_division(div, data_dir, sheets, sched_meta, today, pred_log):
         if not remaining:
             continue
         ps = points_system(s['teams'])
+        if s.get('built'):
+            ps = {'w': 2, 't': 1, 'l': 0, 'fit': 'assumed'}
         groups = defaultdict(list)
         for t in s['teams']:
             groups[t.get('groupName') or ''].append(t)
@@ -617,7 +655,10 @@ def build_division(div, data_dir, sheets, sched_meta, today, pred_log):
             grp_out.append({'name': gname, 'rows': rows_out})
         grp_out.sort(key=lambda g: g['name'])
         projections.append({
-            's': sid, 'name': s['scheduleName'], 'cat': s.get('categoryName'), 'kind': kind,
+            # The schedule's own label never says "Female" (PCAHA's girls' leagues are
+            # just "U13 C League"), so file each one under the category most of its teams are in.
+            's': sid, 'name': s['scheduleName'], 'kind': kind,
+            'cat': (Counter(teams_out[t]['c'] for t in tids if t in teams_out).most_common(1) or [[s.get('categoryName')]])[0][0],
             'start': s.get('startDate'), 'end': s.get('endDate'),
             'played': len(played), 'remaining': len(remaining), 'ps': ps, 'groups': grp_out,
         })

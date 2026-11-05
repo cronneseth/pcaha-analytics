@@ -117,11 +117,12 @@ def game_card(D, g, path):
     d.text((60, 290), a['n'], font=fit_text(d, a['n'], W - 120, 54), fill=INK)
     left = (g['ph'] + g['pt'] / 2) / 100
     x0, x1, y = 60, W - 60, 420
-    d.rounded_rectangle([x0, y, x1, y + 34], 17, fill=LINE)
     split = x0 + (x1 - x0) * left
+    # One continuous bar: red underneath, blue laid over the home share with a square join.
+    d.rounded_rectangle([x0, y, x1, y + 34], 17, fill=RED)
     d.rounded_rectangle([x0, y, split, y + 34], 17, fill=BLUE)
-    d.rounded_rectangle([split, y, x1, y + 34], 17, fill=RED)
-    d.rectangle([split - 2, y - 6, split + 2, y + 40], fill=ICE)
+    if split - 17 > x0:
+        d.rectangle([split - 17, y, split, y + 34], fill=BLUE)
     d.text((x0, 470), f"{short(h)} (home)", font=font(26), fill=BLUE)
     lab = f"{short(a)} (away)"
     d.text((x1 - d.textlength(lab, font=font(26)), 470), lab, font=font(26), fill=RED)
