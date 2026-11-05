@@ -1,0 +1,43 @@
+name: Refresh ratings
+
+on:
+  schedule:
+    # pcaha-stats scrapes at roughly 8pm/midnight PT on weekdays and 4pm/10pm on weekends.
+    # Run an hour after each (times are UTC).
+    - cron: '0 4 * * 1-5'
+    - cron: '0 8 * * 1-5'
+    - cron: '0 0 * * 0,6'
+    - cron: '0 6 * * 0,6'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Get the latest PCAHA Spordle data
+        run: |
+          git clone --depth 1 --filter=blob:none --sparse https://github.com/ecoTokenJames/pcaha-stats.git source
+          cd source && git sparse-checkout set data
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install
+        run: pip install numpy scipy
+
+      - name: Build ratings
+        run: python scripts/build.py source/data site
+
+      - name: Commit if changed
+        run: |
+          git config user.name "rinkrank-bot"
+          git config user.email "actions@users.noreply.github.com"
+          git add site/data
+          git diff --cached --quiet && echo "No changes" || git commit -m "Refresh ratings $(date -u +%F)"
+          git push
