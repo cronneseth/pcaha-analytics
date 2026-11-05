@@ -164,9 +164,6 @@ th button[data-tip] { text-decoration: underline dotted; text-decoration-color: 
 .minecard { display: grid; gap: 4px; background: var(--board); border: 1px solid var(--line); border-left: 4px solid var(--tie); border-radius: 10px; padding: 12px 14px; color: var(--ink); font-size: 14px; min-width: 0; }
 .minecard:hover { text-decoration: none; border-color: var(--blue); }
 .minecard > b { font-size: 16px; }
-.tierflag { color: var(--red); font-weight: 600; }
-.tierbadge { display: inline-block; font: 600 13px/1 var(--mono); text-transform: uppercase; letter-spacing: .6px; color: #fff; background: var(--red); padding: 7px 10px; border-radius: 6px; }
-.tierbadge:hover { text-decoration: none; opacity: .9; }
 ul.plain { list-style: none; margin: 0; padding: 0; display: grid; gap: 9px; }
 ul.plain .note { font-size: 13px; }
 .clubteams { margin: 8px 0 4px; padding-left: 18px; display: grid; gap: 4px; font-weight: 400; }
@@ -210,7 +207,7 @@ footer { border-top: 1px solid var(--line); color: var(--muted); font-size: 14px
 
 <header>
   <div class="wrap bar">
-    <a class="brand" href="#u13-rankings"><b>Rink<i>Rank</i></b><span>PCAHA analytics</span></a>
+    <a class="brand" href="#u13-rankings"><b>Rink<i>Rank</i></b><span>Independent stats for Lower Mainland minor hockey</span></a>
     <div class="divs" id="divs" role="group" aria-label="Age group"></div>
     <div class="divs levels" id="levels" role="group" aria-label="Rep or house"></div>
     <div class="divs levels" id="genders" role="group" aria-label="Mixed or female"></div>
@@ -226,7 +223,7 @@ footer { border-top: 1px solid var(--line); color: var(--muted); font-size: 14px
 const $ = (s, el = document) => el.querySelector(s);
 const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const S = { index: null, data: {}, div: 'u13', view: 'rankings', team: null, cat: {}, region: 'pcaha', q: '', sort: 'power', gamesCat: 'all' };
-const VIEWS = [['rankings','Rankings'],['week','This week'],['games','Games'],['leagues','Projections'],['record','Track record'],['tiers','Tiers'],['clubs','Clubs'],['search','Search'],['method','How it works']];
+const VIEWS = [['rankings','Rankings'],['week','This week'],['games','Games'],['leagues','Projections'],['record','Track record'],['clubs','Clubs'],['search','Search'],['method','How it works']];
 const GLOBAL_VIEWS = new Set(['clubs', 'method', 'search']);
 const LEVELS = [['rep', 'Rep'], ['house', 'House']];
 const levelOf = c => /\bC\b/.test(c || '') ? 'house' : 'rep';
@@ -234,7 +231,7 @@ const GENDERS = [['mixed', 'Mixed'], ['female', 'Female']];
 const genderOf = c => /Female$/.test(c || '') ? 'female' : 'mixed';
 const inLevel = c => levelOf(c) === S.level && genderOf(c) === S.gender;
 const levelName = () => (S.gender === 'female' ? 'female ' : '') + (S.level === 'house' ? 'house' : 'rep');
-const REGIONS = [['pcaha','PCAHA'],['island','Island'],['visitor','Visiting'],['all','All']];
+const REGIONS = [['pcaha','PCAHA'],['island','Island'],['all','All']];
 
 const GLOSS = {
   rank: ['Rank', 'Position by Power among the teams shown. Change the filter and the ranks change with it.'],
@@ -244,12 +241,12 @@ const GLOSS = {
   gf: ['GF*', 'Goals per game this team would be expected to score against an average opponent in the age group. The offence rating.'],
   ga: ['GA*', 'Goals per game this team would be expected to allow against an average opponent in the age group. The defence rating; lower is better.'],
   sched: ['Schedule strength', 'Average Power of the opponents this team has played, compared with the category average. Positive means a tougher schedule than most.'],
-  luck: ['Luck', 'Points percentage minus the points percentage the team would usually earn from its game-by-game chances. Big positive numbers often mean close wins that tend not to last; big negative numbers suggest a better team than the record shows.'],
+  luck: ['Record vs play', 'Points percentage minus the points percentage the team would usually earn from its game-by-game chances. Big positive numbers often mean close wins that tend not to last; big negative numbers suggest a better team than the record shows.'],
   form: ['Last 5', 'Results of the five most recent games, newest on the left: W win, L loss, T tie.'],
   pp: ['Power play %', 'Power-play goals divided by power-play chances. Chances are estimated from the other team\'s minor, major and match penalties, so coincidental penalties count slightly too many. Shown after six or more chances.'],
   pk: ['Penalty kill %', 'Share of this team\'s penalties that ended without a power-play goal against. Estimated the same way as the power play. Shown after six or more penalties.'],
   early: ['Early', 'Fewer than six games played. The rating is held close to average until more results come in, so expect it to move.'],
-  region: ['Teams shown', 'PCAHA: teams in PCAHA placement, league or playoff schedules. Island: Vancouver Island (VIAHA) teams. Visiting: teams seen only in tournaments. All teams are rated together; this only filters the list.'],
+  region: ['Teams shown', 'PCAHA: teams in PCAHA placement, league or playoff schedules. Island: Vancouver Island (VIAHA) teams. All: both. Teams from outside the region seen only in tournaments are rated through those games but not ranked.'],
   pts: ['Pts', 'Points in the league standings so far.'],
   gp: ['GP', 'League games played so far.'],
   left: ['Left', 'League games still on the schedule.'],
@@ -265,7 +262,7 @@ const GLOSS = {
   upset: ['Winner going in', 'How the winner looked before the game: from Strong favourite to Big underdog. Underdog wins are the upsets.'],
   offence: ['Offence', 'Expected goals for per game against an average opponent in the age group.'],
   defence: ['Defence', 'Expected goals against per game against an average opponent in the age group. Lower is better.'],
-  splits: ['One-goal games', 'Record in games decided by a single goal. Teams that win most of these often have a positive Luck number.'],
+  splits: ['One-goal games', 'Record in games decided by a single goal. Teams that win most of these often have a positive Record vs play number.'],
   logloss: ['Odds error', 'Log loss: the average penalty for the chance given to what actually happened. Saying 90% and being wrong costs much more than saying 55% and being wrong. Lower is better; it rewards honest percentages, not just correct picks.'],
   trend: ['Trend', 'The club\'s score in each of the last three seasons and now, for the teams selected at the top (rep or house, mixed or female). The number is the change since last season. Past seasons are rated the same way, from that season\'s games.'],
   status: ['Status', 'What the points table already guarantees, whatever happens in the games left: clinched first, top half clinched, out of first or out of the top half. "8 pts clinches first" is how many more points guarantee first. Tie-breakers aren\'t in the public data, so a tie on points never counts as clinched.'],
@@ -276,7 +273,6 @@ const GLOSS = {
   source: ['Source', 'Published: the odds this site showed before the game, saved and never changed. Replayed: odds rebuilt for games before launch, using only results from before that day.'],
   level: ['Rep and House', 'Rep is A, AA, AAA and U11 Select teams. House is C teams. The switch at the top filters every page; ratings are calculated across all games either way.'],
   gender: ['Mixed and Female', 'Mixed is the open program; Female is girls-only teams and leagues. The switch at the top filters every page. Female and mixed teams that meet in tournaments are rated on the same scale.'],
-  tier: ['Tier check', 'Compares a team\'s Power with the middle team of each tier in its category. "Plays like Tier 1" means its results sit closer to the Tier 1 teams than to its own tier. Needs six or more games.'],
   hist: ['Power by week', 'The team\'s Power at the end of each week, refitted using only the games played up to then. The dashed line is the category average; the numbers are the rank at the start and now.'],
   cpct: ['Category percentile', 'Share of teams in the same category (for example U13 A) that a team is rated above. 50 is a typical team; 90 means better than nine in ten.'],
   topq: ['Top 25%', 'How many of the association\'s teams sit in the top quarter of their category.'],
@@ -298,8 +294,9 @@ const dateLabel = d => new Date(d + 'T12:00:00').toLocaleDateString('en-CA', { w
 const timeLabel = st => st ? new Date(st).toLocaleTimeString('en-CA', { hour: 'numeric', minute: '2-digit', timeZone: 'America/Vancouver' }) : '';
 
 /* ---------- maths shared with the build ---------- */
+// Category average: PCAHA and Island teams only, so visiting tournament teams don't move the baseline.
 function catMean(D, cat) {
-  const ts = Object.values(D.teams).filter(t => t.c === cat);
+  const ts = Object.values(D.teams).filter(t => t.c === cat && t.rg !== 'visitor');
   return ts.reduce((s, t) => s + t.net, 0) / Math.max(ts.length, 1);
 }
 function power(D, t) { return t.net - catMean(D, t.c); }
@@ -364,7 +361,7 @@ document.addEventListener('click', async e => {
 function parseHash() {
   const h = location.hash.slice(1);
   if (GLOBAL_VIEWS.has(h)) return { view: h };
-  const m = h.match(/^(u\d+)-(rankings|week|games|leagues|record|tiers|team|game|match)(?:-(\d+))?(?:-(\d+))?$/);
+  const m = h.match(/^(u\d+)-(rankings|week|games|leagues|record|team|game|match)(?:-(\d+))?(?:-(\d+))?$/);
   if (!m) return { div: S.div, view: 'rankings' };
   return { div: m[1], view: m[2], team: m[3] ? +m[3] : null, team2: m[4] ? +m[4] : null };
 }
@@ -414,7 +411,6 @@ async function render() {
   else if (S.view === 'games') app.innerHTML = viewGames(D);
   else if (S.view === 'leagues') app.innerHTML = viewLeagues(D);
   else if (S.view === 'week') app.innerHTML = viewWeek(D);
-  else if (S.view === 'tiers') app.innerHTML = viewTiers(D);
   else if (S.view === 'record') app.innerHTML = viewRecord(D);
   else if (S.view === 'game') {
     const g = findGame(D, S.team);
@@ -438,7 +434,7 @@ function currentCat(D) {
   return S.cat[S.div];
 }
 function rankedList(D, cat, region) {
-  let ts = Object.values(D.teams).filter(t => t.c === cat && (region === 'all' || t.rg === region));
+  let ts = Object.values(D.teams).filter(t => t.c === cat && (region === 'all' ? t.rg !== 'visitor' : t.rg === region));
   ts.sort((a, b) => b.net - a.net);
   const prev = ts.filter(t => t.prevNet != null).slice().sort((a, b) => b.prevNet - a.prevNet);
   const pr = new Map(prev.map((t, i) => [t.id, i + 1]));
@@ -485,13 +481,13 @@ function viewRankings(D) {
   </div>
   <div class="tframe"><table>
     <thead><tr><th class="l">${tipSpan('rank', '#')}</th><th class="l">${tipSpan('move', '±')}</th><th class="l">Team</th>${th('rec', 'Record')}${th('power', 'Power')}
-      ${th('off', 'GF*', 'hide-sm')}${th('def', 'GA*', 'hide-sm')}${th('sos', 'Sched', 'hide-sm')}${th('luck', 'Luck', 'hide-sm')}
+      ${th('off', 'GF*', 'hide-sm')}${th('def', 'GA*', 'hide-sm')}${th('sos', 'Sched', 'hide-sm')}${th('luck', 'Rec vs play', 'hide-sm')}
       <th class="l">${tipSpan('form', 'Last 5')}</th>${th('pp', 'PP', 'hide-sm')}${th('pk', 'PK', 'hide-sm')}</tr></thead>
     <tbody>${rows.map(({ t, rank, move }) => {
       const luck = t.ptsPct - t.xPtsPct;
       return `<tr>
         <td class="l rank">${rank}</td><td class="l">${moveCell(move)}</td>
-        <td class="l team">${starBtn(S.div, t.id)}<a href="#${S.div}-team-${t.id}">${esc(t.n)}</a>${t.gp < 6 ? '<span class="prov" tabindex="0" data-tip="early">EARLY</span>' : ''}<small>${esc(t.lg || t.a)}${t.grp ? ' · ' + esc(t.grp) : ''}${(() => { const f = tierFlag(D, t); return f ? ` · <span class="tierflag" tabindex="0" data-tip="tier">plays like Tier ${f.like}</span>` : ''; })()}</small></td>
+        <td class="l team">${starBtn(S.div, t.id)}<a href="#${S.div}-team-${t.id}">${esc(t.n)}</a>${t.gp < 6 ? '<span class="prov" tabindex="0" data-tip="early">EARLY</span>' : ''}<small>${esc(t.lg || t.a)}${t.grp ? ' · ' + esc(t.grp) : ''}</small></td>
         <td class="num">${t.w}-${t.l}-${t.t}</td>
         <td>${powerCell(t.net - mean)}</td>
         <td class="num hide-sm">${fmt(t.off)}</td><td class="num hide-sm">${fmt(t.def)}</td>
@@ -501,7 +497,7 @@ function viewRankings(D) {
         <td class="num hide-sm">${pct(t.st.pp)}</td><td class="num hide-sm">${pct(t.st.pk)}</td></tr>`;
     }).join('') || `<tr><td colspan="12" class="l">No teams match “${esc(S.q)}”.</td></tr>`}</tbody>
   </table></div>
-  <p class="note">${rows.length} of ${all} teams. GF* and GA* are goals for and against per game you'd expect against an average ${esc(D.div)} opponent. Sched is the average strength of opponents faced, against the ${esc(cat)} average. Luck is points percentage minus the points percentage the team's play would usually earn. PP and PK are estimated from game sheets. <a href="#method">How it works</a>.</p>`;
+  <p class="note">${rows.length} of ${all} teams. GF* and GA* are goals for and against per game you'd expect against an average ${esc(D.div)} opponent. Sched is the average strength of opponents faced, against the ${esc(cat)} average. Rec vs play is points percentage minus the points percentage the team's play would usually earn. PP and PK are estimated from game sheets. <a href="#method">How it works</a>.</p>`;
 }
 
 /* ---------- team ---------- */
@@ -557,19 +553,18 @@ function viewTeam(D, t) {
   const up = D.upcoming.filter(g => g.h === t.id || g.a === t.id);
   const opp = id => D.teams[id];
   const report = scouting(D, t);
-  const rgName = { pcaha: 'PCAHA', island: 'Island', visitor: 'visiting' }[t.rg];
+  const rgName = { pcaha: 'PCAHA', island: 'Island' }[t.rg];
   return `
   <p class="eyebrow"><a href="#${S.div}-rankings" data-cat-link="${esc(t.c)}">${esc(t.c)} rankings</a></p>
   <h1>${esc(t.n)} ${starBtn(S.div, t.id, true)} ${shareBtn(`${S.div}-team-${t.id}`, t.n)}</h1>
-  ${(() => { const f = tierFlag(D, t); return f ? `<p><a class="tierbadge" href="#${S.div}-tiers" data-tier-link="${esc(t.c)}" data-tip="tier">Placed in Tier ${f.tier}, playing like Tier ${f.like}</a></p>` : ''; })()}
-  <p class="lede">${esc(t.lg || '')}${t.grp ? ' · ' + esc(t.grp) : ''}. Ranked <b>${meR.rank} of ${pcahaList.length}</b> ${rgName} teams in ${esc(t.c)}${me.rank !== meR.rank ? ` (${me.rank} of ${list.length} counting all teams)` : ''}.</p>
+  <p class="lede">${t.rg === 'visitor' ? `A visiting team, seen only in tournaments. It's rated through those games but isn't included in the ${esc(t.c)} rankings.` : `${esc(t.lg || '')}${t.grp ? ' · ' + esc(t.grp) : ''}. Ranked <b>${meR.rank} of ${pcahaList.length}</b> ${rgName} teams in ${esc(t.c)}${me.rank !== meR.rank ? ` (${me.rank} of ${list.length} counting PCAHA and Island teams)` : ''}.`}</p>
   <div class="tiles">
     <div class="tile"><div class="k" tabindex="0" data-tip="power">Power</div><div class="v num">${sgn(pw)}</div><div class="s">goals a game vs an average ${esc(t.c)} team</div></div>
     <div class="tile"><div class="k" tabindex="0" data-tip="record">Record</div><div class="v num">${t.w}-${t.l}-${t.t}</div><div class="s">${t.gf} for, ${t.ga} against</div></div>
     <div class="tile"><div class="k" tabindex="0" data-tip="offence">Offence</div><div class="v num">${fmt(t.off)}</div><div class="s">expected goals for a game</div></div>
     <div class="tile"><div class="k" tabindex="0" data-tip="defence">Defence</div><div class="v num">${fmt(t.def)}</div><div class="s">expected goals against a game</div></div>
     <div class="tile"><div class="k" tabindex="0" data-tip="sched">Schedule so far</div><div class="v num">${sgn(t.sos == null ? null : t.sos - mean)}</div><div class="s">${t.pct && t.pct.sos != null ? `tougher than ${t.pct.sos}% of the category` : ''}</div></div>
-    <div class="tile"><div class="k" tabindex="0" data-tip="luck">Luck</div><div class="v num">${sgn(t.ptsPct - t.xPtsPct, 0)}</div><div class="s">${t.ptsPct}% of points vs ${t.xPtsPct}% expected</div></div>
+    <div class="tile"><div class="k" tabindex="0" data-tip="luck">Record vs play</div><div class="v num">${sgn(t.ptsPct - t.xPtsPct, 0)}</div><div class="s">${t.ptsPct}% of points vs ${t.xPtsPct}% expected</div></div>
   </div>
   <section class="panel" style="margin-bottom:18px"><h2 style="margin-top:0">${tipSpan('hist', 'Power by week')}</h2>${histChart(t)}</section>
   <div class="grid2">
@@ -592,7 +587,7 @@ function viewTeam(D, t) {
   ${up.length ? `<h2>Next games</h2><div class="games">${up.slice(0, 6).map(g => gameCard(D, g, t.id)).join('')}</div>` : ''}
   <h2>Matchup check</h2>
   <div class="panel"><div class="controls" style="margin:0 0 10px"><label for="vs" class="eyebrow">Against</label>
-    <select id="vs"><option value="">Pick any ${esc(D.div)} team…</option>${Object.values(D.teams).filter(x => x.id !== t.id).sort((a, b) => a.n.localeCompare(b.n)).map(x => `<option value="${x.id}">${esc(x.n)}</option>`).join('')}</select></div>
+    <select id="vs"><option value="">Pick any ${esc(D.div)} ${levelOf(t.c) === 'house' ? 'house' : 'rep'} team…</option>${Object.values(D.teams).filter(x => x.id !== t.id && levelOf(x.c) === levelOf(t.c)).sort((a, b) => a.n.localeCompare(b.n)).map(x => `<option value="${x.id}">${esc(x.n)}</option>`).join('')}</select></div>
     <div id="vsout" class="note">Pick an opponent to see the chances on neutral ice.</div></div>
   <h2>Game by game</h2>
   <div class="tframe"><table>
@@ -624,7 +619,7 @@ function isWatch(D, g) {
   const h = D.teams[g.h], a = D.teams[g.a];
   if (!h || !a || h.c !== a.c) return false;
   const close = Math.abs(g.ph - g.pa) <= 20;
-  return close && h.rank <= Math.ceil(h.of / 4) && a.rank <= Math.ceil(a.of / 4);
+  return close && h.rank && a.rank && h.rank <= Math.ceil(h.of / 4) && a.rank <= Math.ceil(a.of / 4);
 }
 function viewGames(D) {
   const cats = ['all', ...levelCats(D).map(c => c.c)];
@@ -700,13 +695,13 @@ function viewMethod() {
   <div class="grid2">${segTable(ev.byType, 'Game type')}${segTable(ev.byLevel, 'Level')}</div>` : ''}
   <h2>Keeping score</h2>
   <p>The <a href="#${S.div}-record">Track record</a> page grades every game this season against the odds the model gave before it was played. Before launch those odds are replayed, with the model refitted on only the games from earlier days. From launch on, the odds shown on the site at the last update before each game are saved and never changed afterwards, so the record can't be quietly improved.</p>
-  <h2>Tiers and clubs</h2>
-  <p><b>Tier check</b> lines up every tiered PCAHA team by Power and flags teams sitting closer to another tier's middle team than to their own. <b>Club report cards</b> average each association's team percentiles within their own categories, so a club isn't rewarded for having more A teams than C teams.</p>
+  <h2>Clubs</h2>
+  <p><b>Club report cards</b> average each association's team percentiles within their own categories, so a club isn't rewarded for having more A teams than C teams.</p>
   <h2>Other numbers</h2>
-  <p><b>Schedule strength</b> is the average power of the opponents a team has played. <b>Luck</b> compares a team's points percentage with the points percentage its game-by-game chances would usually earn; big gaps tend to close. <b>Power play and penalty kill</b> are estimated from game sheets: power-play chances are the opponent's minor, major and match penalties, which slightly overcounts when penalties are coincidental. <b>Projections</b> play out each league's remaining schedule thousands of times.</p>
+  <p><b>Schedule strength</b> is the average power of the opponents a team has played. <b>Record vs play</b> compares a team's points percentage with the points percentage its game-by-game chances would usually earn; big gaps tend to close. <b>Power play and penalty kill</b> are estimated from game sheets: power-play chances are the opponent's minor, major and match penalties, which slightly overcounts when penalties are coincidental. <b>Projections</b> play out each league's remaining schedule thousands of times.</p>
   <h2>What every number means</h2>
   <p class="note">The same explanations appear when you hover over (or tap) any underlined label on the site.</p>
-  <dl class="gloss">${['level','gender','power','gf','ga','record','move','hist','sched','luck','form','pp','pk','early','region','tier','cpct','topq','odds','watch','winchance','vsexp','upset','projected','p1','top','avgfin','poolwin','status','trend','picked','baseline','confident','calib','source','splits','depth'].map(k => `<dt>${esc(GLOSS[k][0])}</dt><dd>${esc(GLOSS[k][1])}</dd>`).join('')}</dl>
+  <dl class="gloss">${['level','gender','power','gf','ga','record','move','hist','sched','luck','form','pp','pk','early','region','cpct','topq','odds','watch','winchance','vsexp','upset','projected','p1','top','avgfin','poolwin','status','trend','picked','baseline','confident','calib','source','splits','depth'].map(k => `<dt>${esc(GLOSS[k][0])}</dt><dd>${esc(GLOSS[k][1])}</dd>`).join('')}</dl>
   <h2>What we don't publish</h2>
   <p>These are kids' games. RinkRank shows team numbers only. Player names and individual stats stay on the official PCAHA site. The ratings use player IDs from the public data for one thing: linking each team to the teams its players came from last season. No player information is shown, stored or shared by this site.</p>
   <h2>Limits</h2>
@@ -750,7 +745,7 @@ async function fillMine() {
   const el = $('#mine'); if (el) el.innerHTML = `<div class="mine">${cards.join('') || '<p class="note">Your saved teams have no games this season.</p>'}</div>`;
 }
 function mineCard(D, div, t) {
-  const r = rankedList(D, t.c, t.rg).find(x => x.t.id === t.id);
+  const r = t.rg === 'visitor' ? null : rankedList(D, t.c, t.rg).find(x => x.t.id === t.id);
   const last = t.log[t.log.length - 1];
   const next = D.upcoming.find(g => g.h === t.id || g.a === t.id);
   let nx = '';
@@ -787,70 +782,6 @@ function histChart(t) {
     <text x="${x(0)}" y="${y(h[0][1]) - 9}" text-anchor="middle" fill="var(--ink)" style="font:600 12px var(--mono)">#${h[0][2]}</text>
     <text x="${x(h.length - 1)}" y="${y(h[h.length - 1][1]) - 10}" text-anchor="middle" fill="var(--ink)" style="font:600 12px var(--mono)">#${h[h.length - 1][2]}</text>
   </svg>`;
-}
-
-/* ---------- tier check ---------- */
-const tierCache = new Map();
-function median(a) { const s = a.slice().sort((p, q) => p - q), m = s.length >> 1; return s.length % 2 ? s[m] : (s[m - 1] + s[m]) / 2; }
-function tierInfo(D, cat) {
-  const key = D.div + cat; if (tierCache.has(key)) return tierCache.get(key);
-  const ts = Object.values(D.teams).filter(t => t.c === cat && t.rg === 'pcaha' && t.tier);
-  const by = {}; ts.forEach(t => (by[t.tier] ||= []).push(t));
-  const tiers = Object.keys(by).map(Number).sort().map(k => {
-    const p = by[k].map(t => power(D, t));
-    return { tier: k, teams: by[k], med: median(p), lo: Math.min(...p), hi: Math.max(...p) };
-  }).filter(x => x.teams.length >= 3);
-  const flags = [];
-  if (tiers.length >= 2) for (const tr of tiers) for (const t of tr.teams) {
-    if (t.gp < 6) continue;
-    const p = power(D, t);
-    const near = tiers.reduce((b, x) => Math.abs(p - x.med) < Math.abs(p - b.med) ? x : b, tr);
-    if (near.tier !== tr.tier && Math.abs(p - tr.med) - Math.abs(p - near.med) > 1.0) flags.push({ t, tier: tr.tier, like: near.tier, p });
-  }
-  const res = { tiers, flags }; tierCache.set(key, res); return res;
-}
-function tierFlag(D, t) { if (!t.tier) return null; return tierInfo(D, t.c).flags.find(f => f.t.id === t.id) || null; }
-function tierStrip(D, info) {
-  const all = info.tiers.flatMap(x => x.teams.map(t => power(D, t)));
-  let lo = Math.min(...all), hi = Math.max(...all); const pad = (hi - lo) * 0.06 + 0.3; lo -= pad; hi += pad;
-  const W = 640, rowH = 46, L = 64, R = 16, T = 8, H = T + info.tiers.length * rowH + 26;
-  const x = v => L + (v - lo) / (hi - lo) * (W - L - R);
-  const step = niceStep(hi - lo), ticks = [];
-  for (let v = Math.ceil(lo / step) * step; v <= hi; v += step) ticks.push(+v.toFixed(2));
-  const flagged = new Set(info.flags.map(f => f.t.id));
-  return `<svg viewBox="0 0 ${W} ${H}" width="100%" role="img" aria-label="Power of every team, one row per tier">
-    ${ticks.map(v => `<line x1="${x(v)}" x2="${x(v)}" y1="${T}" y2="${H - 22}" stroke="var(--line)"/><text x="${x(v)}" y="${H - 6}" text-anchor="middle" fill="var(--muted)" style="font:11px var(--mono)">${sgn(v, step < 1 ? 1 : 0)}</text>`).join('')}
-    ${info.tiers.map((tr, i) => { const cy = T + i * rowH + rowH / 2;
-      return `<text x="0" y="${cy + 4}" fill="var(--ink)" style="font:700 13px var(--body)">Tier ${tr.tier}</text>
-        <line x1="${x(tr.lo)}" x2="${x(tr.hi)}" y1="${cy}" y2="${cy}" stroke="var(--bar)" stroke-width="2"/>
-        ${tr.teams.map((t, j) => { const p = power(D, t), f = flagged.has(t.id);
-          return `<circle cx="${x(p).toFixed(1)}" cy="${(cy + ((j % 3) - 1) * 6).toFixed(1)}" r="${f ? 6 : 4.5}" fill="${f ? 'var(--red)' : 'var(--blue)'}" opacity="${f ? 1 : .7}"><title>${esc(t.n)}: ${sgn(p)}</title></circle>`; }).join('')}
-        <line x1="${x(tr.med)}" x2="${x(tr.med)}" y1="${cy - 15}" y2="${cy + 15}" stroke="var(--ink)" stroke-width="2.5"/>`; }).join('')}
-  </svg>`;
-}
-function viewTiers(D) {
-  if (S.level === 'house') return `<p class="eyebrow">${esc(D.div)} · tier check</p><h1>Tier check</h1><p class="lede">House teams aren't placed in tiers, so the tier check covers rep teams only. Switch to Rep at the top to see it.</p>`;
-  const cats = levelCats(D).map(c => c.c).filter(c => tierInfo(D, c).tiers.length >= 2);
-  if (!cats.length) return `<p class="eyebrow">${esc(D.div)} · tier check</p><h1>Tier check</h1><p class="lede">No ${esc(D.div)} ${levelName()} category has tiered teams with enough games yet.</p>`;
-  if (!cats.includes(S.tierCat)) S.tierCat = cats[0];
-  const info = tierInfo(D, S.tierCat);
-  const up = info.flags.filter(f => f.like < f.tier).sort((a, b) => b.p - a.p), down = info.flags.filter(f => f.like > f.tier).sort((a, b) => a.p - b.p);
-  const row = f => `<tr><td class="l team"><a href="#${S.div}-team-${f.t.id}">${esc(f.t.n)}</a></td><td class="num">${f.tier}</td><td class="num"><b>${f.like}</b></td><td class="num">${sgn(f.p)}</td><td class="num">${f.t.w}-${f.t.l}-${f.t.t}</td></tr>`;
-  const head = `<thead><tr><th class="l">Team</th><th>Placed</th><th>${tipSpan('tier', 'Plays like')}</th><th>Power</th><th>Record</th></tr></thead>`;
-  return `
-  <p class="eyebrow">${esc(D.div)} · tier check</p>
-  <h1>Did placement get it right?</h1>
-  <p class="lede">Each row is a tier. Each dot is a PCAHA team, placed by its Power; the black line is the tier's middle team. Red dots are teams playing clearly closer to a different tier's middle team than to their own, by at least a goal a game (six or more games played).</p>
-  <div class="controls"><div class="chips" role="group" aria-label="Category">${cats.map(c => `<button type="button" class="chip" data-tcat="${esc(c)}" aria-pressed="${c === S.tierCat}">${esc(c)}</button>`).join('')}</div></div>
-  <div class="panel">${tierStrip(D, info)}</div>
-  <div class="grid2" style="margin-top:18px">
-    <section><h2 style="margin-top:0">Playing above their tier</h2>${up.length ? `<div class="tframe"><table>${head}<tbody>${up.map(row).join('')}</tbody></table></div>` : '<p class="note">None right now.</p>'}</section>
-    <section><h2 style="margin-top:0">Playing below their tier</h2>${down.length ? `<div class="tframe"><table>${head}<tbody>${down.map(row).join('')}</tbody></table></div>` : '<p class="note">None right now.</p>'}</section>
-  </div>
-  <h2>Tier by tier</h2>
-  <div class="tframe"><table><thead><tr><th class="l">Tier</th><th>Teams</th><th>Middle team</th><th>Strongest</th><th>Weakest</th></tr></thead>
-  <tbody>${info.tiers.map(tr => `<tr><td class="l"><b>Tier ${tr.tier}</b></td><td class="num">${tr.teams.length}</td><td class="num">${sgn(tr.med)}</td><td class="num">${sgn(tr.hi)}</td><td class="num">${sgn(tr.lo)}</td></tr>`).join('')}</tbody></table></div>
-  <p class="note">Tiers come from team names (for example "A2 Tier 2"). Teams without a tier in their name aren't shown.</p>`;
 }
 
 /* ---------- clubs ---------- */
@@ -912,14 +843,12 @@ function viewWeek(D) {
     return prev ? { t, from: prev[2], to: cur[2], d: prev[2] - cur[2] } : null;
   }).filter(Boolean);
   const risers = movers.filter(m => m.d > 0).sort((a, b) => b.d - a.d).slice(0, 6);
-  const fallers = movers.filter(m => m.d < 0).sort((a, b) => a.d - b.d).slice(0, 6);
   const ups = D.upsets.filter(u => u.d >= wk && (inLevel(D.teams[u.h].c) || inLevel(D.teams[u.a].c))).slice(0, 6);
   const perf = [];
   teams.forEach(t => t.log.forEach(g => { if (g.d >= wk && g.pf >= 2.5) perf.push({ t, g }); }));
   perf.sort((a, b) => b.g.pf - a.g.pf);
   const streak = t => { let n = 0, kind = null; for (let i = t.log.length - 1; i >= 0; i--) { const r = t.log[i].r === 'W' ? 'W' : 'X'; if (kind == null) kind = r; if (r !== kind) break; n++; } return { kind, n }; };
   const hot = teams.map(t => ({ t, s: streak(t) })).filter(x => x.s.kind === 'W' && x.s.n >= 4).sort((a, b) => b.s.n - a.s.n).slice(0, 6);
-  const cold = teams.map(t => ({ t, s: streak(t) })).filter(x => x.s.kind === 'X' && x.s.n >= 4).sort((a, b) => b.s.n - a.s.n).slice(0, 6);
   const watch = D.upcoming.filter(g => g.d <= nextWk && inLevel(D.teams[g.h].c) && isWatch(D, g)).slice(0, 8);
   const tl = t => `<a href="#${S.div}-team-${t.id}">${esc(t.n)}</a>`;
   const top = risers[0];
@@ -930,20 +859,16 @@ function viewWeek(D) {
   <h1>This week in ${esc(D.div)} ${S.gender === 'female' ? 'Female ' : ''}${S.level === 'house' ? 'House' : 'Rep'}</h1>
   <p class="lede">${lead} ${ups.length ? `${ups.length} upset${ups.length > 1 ? 's' : ''} and ` : ''}${watch.length} game${watch.length === 1 ? '' : 's'} to watch in the week ahead.</p>
   ${mineSection(false)}
-  <div class="grid2">
-    <section class="panel"><h2 style="margin-top:0">Climbing</h2><ul class="plain">${risers.map(m => li('', `<span class="mv up">▲${m.d}</span> ${tl(m.t)} <span class="note">${esc(m.t.c)}: #${m.from} → #${m.to}</span>`)).join('') || '<li class="note">No big moves.</li>'}</ul></section>
-    <section class="panel"><h2 style="margin-top:0">Sliding</h2><ul class="plain">${fallers.map(m => li('', `<span class="mv down">▼${-m.d}</span> ${tl(m.t)} <span class="note">${esc(m.t.c)}: #${m.from} → #${m.to}</span>`)).join('') || '<li class="note">No big moves.</li>'}</ul></section>
-  </div>
+  <h2>Climbing</h2>
+  <ul class="plain">${risers.map(m => li('', `<span class="mv up">▲${m.d}</span> ${tl(m.t)} <span class="note">${esc(m.t.c)}: #${m.from} → #${m.to}</span>`)).join('') || '<li class="note">No big moves.</li>'}</ul>
   <h2>Upsets</h2>
   ${ups.length ? `<ul class="plain">${ups.map(u => { const hw = u.hs > u.as, w = D.teams[hw ? u.h : u.a], l = D.teams[hw ? u.a : u.h];
     return li('', `${tl(w)} beat ${tl(l)} ${Math.max(u.hs, u.as)}-${Math.min(u.hs, u.as)} <span class="note">${esc(dateLabel(u.d))} · ${sideWord(u.p).toLowerCase()} going in</span>`); }).join('')}</ul>` : '<p class="note">No big upsets this week.</p>'}
   <h2>Standout performances</h2>
   ${perf.length ? `<ul class="plain">${perf.slice(0, 6).map(({ t, g }) => { const o = D.teams[g.o];
     return li('', `${tl(t)} ${g.r === 'W' ? 'beat' : g.r === 'T' ? 'tied' : 'lost to'} ${o ? tl(o) : 'an opponent'} ${g.gf}-${g.ga}, <b>${sgn(g.pf)}</b> goals better than expected <span class="note">${esc(dateLabel(g.d))}</span>`); }).join('')}</ul>` : '<p class="note">Nothing far above expectations this week.</p>'}
-  <div class="grid2" style="margin-top:6px">
-    <section><h2>On a roll</h2><ul class="plain">${hot.map(x => li('', `${tl(x.t)} <span class="note">${x.s.n} straight wins</span>`)).join('') || '<li class="note">No team has won four straight.</li>'}</ul></section>
-    <section><h2>Looking for a win</h2><ul class="plain">${cold.map(x => li('', `${tl(x.t)} <span class="note">${x.s.n} games without a win</span>`)).join('') || '<li class="note">No team is four games without a win.</li>'}</ul></section>
-  </div>
+  <h2>On a roll</h2>
+  <ul class="plain">${hot.map(x => li('', `${tl(x.t)} <span class="note">${x.s.n} straight wins</span>`)).join('') || '<li class="note">No team has won four straight.</li>'}</ul>
   <h2>Games to watch</h2>
   ${watch.length ? `<div class="games">${watch.map(g => gameCard(D, g)).join('')}</div>` : '<p class="note">No matchups between two top-quarter teams with close odds in the next seven days.</p>'}`;
 }
@@ -1014,8 +939,8 @@ function matchKeys(D, A, B, m) {
     if (X.formPerf != null && X.formPerf >= 1.5) keys.push(`${nm(X)} are playing above their rating, ${sgn(X.formPerf)} goals a game better than expected over the last five.`);
     if (X.formPerf != null && X.formPerf <= -1.5) keys.push(`${nm(X)} have cooled off, ${sgn(X.formPerf)} goals a game below expectations over the last five.`);
     const luck = X.ptsPct - X.xPtsPct;
-    if (luck >= 15) keys.push(`${nm(X)}'s record flatters them a little (luck ${sgn(luck, 0)}). They've won more close ones than their play suggests.`);
-    if (luck <= -15) keys.push(`${nm(X)} are better than their record (luck ${sgn(luck, 0)}). Don't be fooled by the standings.`);
+    if (luck >= 15) keys.push(`${nm(X)}'s record flatters them a little (record vs play ${sgn(luck, 0)}). They've won more close ones than their play suggests.`);
+    if (luck <= -15) keys.push(`${nm(X)} are better than their record (record vs play ${sgn(luck, 0)}). Don't be fooled by the standings.`);
   }
   // one-goal games when close
   if (close) for (const X of [A, B]) { const o = X.one, n = o[0] + o[1] + o[2]; if (n >= 3 && (o[0] / n >= 0.7 || o[1] / n >= 0.7)) keys.push(`In one-goal games ${nm(X)} are ${rec(o)}. ${o[0] > o[1] ? 'They know how to close out tight games.' : 'Tight games have slipped away from them.'}`); }
@@ -1033,7 +958,7 @@ function compareRows(D, A, B) {
     ['Penalties a game', penPG(A), penPG(B), v => fmt(v), false, null],
     ['Third periods', A.sheets ? perDiff(A, '3') : null, B.sheets ? perDiff(B, '3') : null, v => sgn(v, 0), true, null],
     ['Schedule so far', A.sos, B.sos, v => sgn(v == null ? null : v - catMean(D, A.c)), true, 'sched'],
-    ['Luck', A.ptsPct - A.xPtsPct, B.ptsPct - B.xPtsPct, v => sgn(v, 0), null, 'luck'],
+    ['Record vs play', A.ptsPct - A.xPtsPct, B.ptsPct - B.xPtsPct, v => sgn(v, 0), null, 'luck'],
   ];
   return rows.map(([label, a, b, f, hiGood, tip]) => {
     let wa = '', wb = '';
@@ -1199,7 +1124,6 @@ function bind(D) {
   app.onclick = e => {
     const b = e.target.closest('button'); const a = e.target.closest('[data-cat-link]');
     if (a) { S.cat[S.div] = a.dataset.catLink; return; }
-    const tl = e.target.closest('[data-tier-link]'); if (tl) { S.tierCat = tl.dataset.tierLink; return; }
     if (!b) return;
     if (b.dataset.cat) { S.cat[S.div] = b.dataset.cat; S.q = ''; app.innerHTML = viewRankings(D); bind(D); }
     else if (b.dataset.region) { S.region = b.dataset.region; app.innerHTML = viewRankings(D); bind(D); }
@@ -1207,7 +1131,6 @@ function bind(D) {
     else if (b.dataset.gcat) { S.gamesCat = b.dataset.gcat; app.innerHTML = viewGames(D); bind(D); }
     else if (b.dataset.rcat) { S.recCat = b.dataset.rcat; S.recShow = 40; app.innerHTML = viewRecord(D); bind(D); }
     else if (b.dataset.more) { const y = window.scrollY; S.recShow = (S.recShow || 40) + 40; app.innerHTML = viewRecord(D); bind(D); window.scrollTo(0, y); }
-    else if (b.dataset.tcat) { S.tierCat = b.dataset.tcat; app.innerHTML = viewTiers(D); bind(D); }
     else if (b.dataset.pkind) { S.pkind = b.dataset.pkind; app.innerHTML = viewLeagues(D); bind(D); }
   };
   const q = $('#q');
