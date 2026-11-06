@@ -1065,6 +1065,7 @@ function viewMethod() {
   <p>Games are harder to call as players get older, and a team's first game of the season is close to a coin flip, which is why those odds are kept modest. Tournaments, with teams from outside PCAHA, are harder than league games.</p>
   <div class="grid2">${segTable(ev.byAge, 'Age group')}${segTable(ev.byGames, 'Fewer games played')}</div>
   <div class="grid2">${segTable(ev.byType, 'Game type')}${segTable(ev.byLevel, 'Level')}</div>` : ''}
+  ${trustSection(WEEKLY)}
   <h2>Keeping score</h2>
   <p>The <a href="#${S.div}-record">Track record</a> page grades every game this season against the odds the model gave before it was played. Before launch those odds are replayed, with the model refitted on only the games from earlier days. From launch on, the odds shown on the site at the last update before each game are saved and never changed afterwards, so the record can't be quietly improved.</p>
   <h2>Clubs</h2>
@@ -1081,6 +1082,36 @@ function viewMethod() {
   <h2>Limits</h2>
   <p>Early in the season ratings move a lot, and teams with fewer than six games are marked EARLY. Island and visiting tournament teams are rated through the few games that link them to PCAHA teams, so treat cross-region comparisons with care. Rosters change, players get hurt, and goalies matter more than any rating can show.</p>
   </div>`;
+}
+// "When can you trust the projections?": the week-by-week replay of past leagues (scripts/test_weekly.py).
+// Fixed results from past seasons, so they live here rather than in the nightly data.
+const WEEKLY = {"seasons":["2024-25","2025-26"],"leagues":64,"rows":[{"played":0,"modelTopHalf":0.692,"standingsTopHalf":0.564,"modelWinner":0.392,"standingsWinner":0.184},{"played":10,"modelTopHalf":0.776,"standingsTopHalf":0.724,"modelWinner":0.523,"standingsWinner":0.341},{"played":20,"modelTopHalf":0.819,"standingsTopHalf":0.76,"modelWinner":0.554,"standingsWinner":0.431},{"played":30,"modelTopHalf":0.843,"standingsTopHalf":0.799,"modelWinner":0.618,"standingsWinner":0.484},{"played":40,"modelTopHalf":0.858,"standingsTopHalf":0.822,"modelWinner":0.684,"standingsWinner":0.547},{"played":50,"modelTopHalf":0.88,"standingsTopHalf":0.843,"modelWinner":0.726,"standingsWinner":0.626},{"played":60,"modelTopHalf":0.905,"standingsTopHalf":0.879,"modelWinner":0.745,"standingsWinner":0.686},{"played":70,"modelTopHalf":0.928,"standingsTopHalf":0.906,"modelWinner":0.763,"standingsWinner":0.734},{"played":80,"modelTopHalf":0.934,"standingsTopHalf":0.926,"modelWinner":0.867,"standingsWinner":0.796},{"played":90,"modelTopHalf":0.974,"standingsTopHalf":0.955,"modelWinner":0.914,"standingsWinner":0.874}],"calibration":[{"stage":"early","predicted":0.749,"actual":0.761,"n":564}]};
+function trustSection(w) {
+  const r = w.rows, at = p => r.find(x => x.played === p) || r[0];
+  const a = at(0), h = at(50);
+  const e75 = (() => { const c = w.calibration.filter(x => x.stage === 'early' && x.predicted >= 0.7 && x.predicted < 0.8); return c.length ? c[0] : null; })();
+  return `<h2>When can you trust the projections?</h2>
+  <p>We replayed every league from the last two seasons (${w.leagues} leagues, ${esc(w.seasons.join(' and '))}) one week at a time. Each week the model saw only the games played so far, projected the rest of the league the same way this site does, and was checked against how the league really finished. The simple alternative is to trust the standings as they are that week.</p>
+  ${trustChart(r, 'modelTopHalf', 'standingsTopHalf', 'Top-half finish called right', 50)}
+  <p>In the first tenth of a league, the projections called top-half finishes right for ${pct(a.modelTopHalf * 100)} of teams, against ${pct(a.standingsTopHalf * 100)} for the standings. By the halfway point it was ${pct(h.modelTopHalf * 100)} against ${pct(h.standingsTopHalf * 100)}. The model stays ahead all season, and the gap is widest in the first few weeks, when the standings have the least to go on.</p>
+  ${trustChart(r, 'modelWinner', 'standingsWinner', 'Eventual first-place team picked', 0)}
+  <p>Picking the team that finishes first is harder. In the first tenth of a league the model's top pick won the group ${pct(a.modelWinner * 100)} of the time, against ${pct(a.standingsWinner * 100)} for the early leader. By halfway it was ${pct(h.modelWinner * 100)} against ${pct(h.standingsWinner * 100)}.</p>
+  <p>The percentages are honest early as well as late.${e75 ? ` Teams given about ${pct(e75.predicted * 100)} for a top-half finish in the first third of the season made it ${pct(e75.actual * 100)} of the time.` : ''} So an early-season number isn't a guess dressed up as a percentage: it already says how unsure it is, and it gets sharper as games are played.</p>`;
+}
+function trustChart(rows, mk, sk, label, floor) {
+  const W = 600, H = 230, L = 40, R = 12, T = 14, B = 46, lo = floor / 100;
+  const x = p => L + p / 90 * (W - L - R), y = v => T + (1 - (v - lo) / (1 - lo)) * (H - T - B);
+  const line = k => rows.filter(r => r[k] != null).map(r => `${x(r.played).toFixed(1)},${y(r[k]).toFixed(1)}`).join(' ');
+  const ticks = []; for (let v = lo; v <= 1.001; v += floor ? 0.1 : 0.2) ticks.push(+v.toFixed(2));
+  return `<figure style="margin:8px 0 14px"><svg viewBox="0 0 ${W} ${H}" width="100%" role="img" aria-label="${esc(label)} by share of league played, model against standings">
+    ${ticks.map(v => `<line x1="${L}" x2="${W - R}" y1="${y(v)}" y2="${y(v)}" stroke="var(--line)"/><text x="${L - 6}" y="${y(v) + 4}" text-anchor="end" fill="var(--muted)" style="font:11px var(--mono)">${Math.round(v * 100)}%</text>`).join('')}
+    ${[0, 30, 60, 90].map(p => `<text x="${x(p)}" y="${H - B + 16}" text-anchor="middle" fill="var(--muted)" style="font:11px var(--mono)">${p}%</text>`).join('')}
+    <text x="${(L + W - R) / 2}" y="${H - 8}" text-anchor="middle" fill="var(--muted)" style="font:11px var(--mono)">Share of league games played</text>
+    <polyline points="${line(sk)}" fill="none" stroke="var(--red)" stroke-width="2.5" stroke-dasharray="6 4"/>
+    <polyline points="${line(mk)}" fill="none" stroke="var(--blue)" stroke-width="3"/>
+    ${rows.map(r => `<circle cx="${x(r.played)}" cy="${y(r[mk])}" r="3.5" fill="var(--blue)"><title>${r.played}% played: model ${Math.round(r[mk] * 100)}%, standings ${Math.round(r[sk] * 100)}%</title></circle>`).join('')}
+  </svg>
+  <figcaption class="note" style="display:flex;gap:16px;flex-wrap:wrap"><b style="color:var(--ink)">${esc(label)}</b><span><span style="color:var(--blue)">━</span> RinkRank projection</span><span><span style="color:var(--red)">╍</span> Standings that week</span></figcaption></figure>`;
 }
 function calChart(rows) {
   const W = 420, H = 260, L = 46, B = 36, T = 10, R = 12, x = v => L + (v - .5) / .5 * (W - L - R), y = v => H - B - (v - .5) / .5 * (H - B - T);
