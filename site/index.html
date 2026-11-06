@@ -220,6 +220,16 @@ footer { border-top: 1px solid var(--line); color: var(--muted); font-size: 14px
 .snap .v { font: 800 22px/1.15 var(--display); }
 .myteam { border-top: 4px solid var(--tie); }
 .dash .wide { grid-column: 1 / -1; }
+.homehead { display: grid; grid-template-columns: minmax(0, 1fr) 360px; gap: 16px 24px; align-items: start; margin-bottom: 18px; }
+.homehead .lede { margin-bottom: 0; }
+.sharecard { border-top: 4px solid var(--good); }
+.sharecard h2 { margin: 0 0 4px; font-size: 19px; }
+.sharecard p { margin: 0 0 10px; font-size: 14px; color: var(--muted); }
+.sharebtns { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
+.sharebtns a, .sharebtns button { display: flex; align-items: center; justify-content: center; gap: 6px; font: 600 14px/1 var(--body); padding: 10px 8px; border-radius: 8px; border: 1px solid var(--line); background: var(--board); color: var(--ink); cursor: pointer; text-decoration: none; }
+.sharebtns a:hover, .sharebtns button:hover { border-color: var(--blue); text-decoration: none; }
+.sharebtns .wa { background: #25d366; border-color: #25d366; color: #06301a; }
+.sharebtns .native { grid-column: 1 / -1; background: var(--blue); border-color: var(--blue); color: #fff; }
 .wkrow { display: grid; grid-template-columns: 150px 1fr auto auto; gap: 4px 14px; align-items: center; padding: 10px 0; border-bottom: 1px solid var(--line); }
 .wkrow:last-child { border-bottom: 0; }
 .wkrow .who small { display: block; color: var(--muted); font-size: 13px; }
@@ -230,7 +240,7 @@ footer { border-top: 1px solid var(--line); color: var(--muted); font-size: 14px
 body.simple .adv { display: none !important; }
 body.simple { font-size: 17px; }
 body.simple .note, body.simple .team small { font-size: 15px; }
-@media (max-width: 900px) { .dash { grid-template-columns: minmax(0, 1fr); } }
+@media (max-width: 900px) { .dash { grid-template-columns: minmax(0, 1fr); } .homehead { grid-template-columns: minmax(0, 1fr); } }
 @media (max-width: 640px) {
   .grow { grid-template-columns: 1fr; }
   .snap .v { font-size: 19px; }
@@ -303,7 +313,7 @@ const GLOSS = {
   odds: ['Strength bar', 'How the two teams compare going in. The longer side has the edge. Words: Even, Slight edge, Clear edge or Strong favourite. It comes from the same ratings as everything else; we show it as a bar rather than percentages because these are kids\' games.'],
   expgoals: ['Expected goals', 'The average score the ratings predict for this game.'],
   watch: ['Game to watch', 'Both teams are in the top quarter of their category and the odds are close.'],
-  upset: ['Winner going in', 'How the winner looked before the game: from Strong favourite to Big underdog. Underdog wins are the upsets.'],
+  upset: ['Winner going in', 'How the winner looked before the game: from Strong favourite to Big challenge. Wins from Tough game or Big challenge are the upsets.'],
   offence: ['Offence', 'Expected goals for per game against an average opponent in the age group.'],
   defence: ['Defence', 'Expected goals against per game against an average opponent in the age group. Lower is better.'],
   splits: ['One-goal games', 'Record in games decided by a single goal. Teams that win most of these often have a positive Record vs play number.'],
@@ -392,10 +402,11 @@ function strengthBar(ph, pt, pa, A, B, opts = {}) {
     ${opts.small ? '' : `<div class="sbar-label ${word === 'Even' ? '' : ph >= pa ? 'fa' : 'fb'}">${esc(label)}</div>`}
   </div>`;
 }
+const upsetWord = p => p <= 10 ? 'a big upset' : 'an upset';
 function sideWord(p) {  // a team's own pre-game chance (0-100, ties included) as words
   if (p == null) return '–';
   const share = Math.min(Math.max(p / 87, 0), 1);
-  return share >= 0.82 ? 'Strong favourite' : share >= 0.68 ? 'Favourite' : share >= 0.57 ? 'Slight favourite' : share > 0.43 ? 'Even' : share > 0.32 ? 'Slight underdog' : share > 0.18 ? 'Underdog' : 'Big underdog';
+  return share >= 0.82 ? 'Strong favourite' : share >= 0.68 ? 'Favourite' : share >= 0.57 ? 'Slight favourite' : share > 0.43 ? 'Even' : share > 0.32 ? 'Close, slight edge to them' : share > 0.18 ? 'Tough game' : 'Big challenge';
 }
 
 /* ---------- share links (live site only: the /s/ pages are built on Netlify) ---------- */
@@ -519,7 +530,7 @@ const ordinal = n => n + (n % 100 >= 11 && n % 100 <= 13 ? 'th' : ['th', 'st', '
 const mapLink = ar => ar ? `<a href="https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(ar + ', BC')}" target="_blank" rel="noopener">${esc(ar)}</a>` : '';
 function chanceWord(p) {  // own chance, ties counted as half, 0-100
   if (p == null) return 'No rating yet';
-  return p >= 82 ? 'Strong favourite' : p >= 68 ? 'Favourite' : p >= 57 ? 'Slight favourite' : p > 43 ? 'Even' : p > 32 ? 'Slight underdog' : p > 18 ? 'Underdog' : 'Big underdog';
+  return p >= 82 ? 'Strong favourite' : p >= 68 ? 'Favourite' : p >= 57 ? 'Slight favourite' : p > 43 ? 'Even' : p > 32 ? 'Close, slight edge to them' : p > 18 ? 'Tough game' : 'Big challenge';
 }
 function rankMove(t, days) {
   const h = t.hist; if (!h || h.length < 2) return 0;
@@ -603,6 +614,32 @@ function aheadSection(D, t) {
       <td class="l">${up ? `<a href="#${S.div}-game-${gid}" class="preview">Scouting report →</a>` : ''}</td></tr>`; }).join('')}
   </tbody></table></div>`;
 }
+// Word of mouth is how hockey parents find things. One card, the usual ways parents pass links around.
+function shareCard() {
+  const url = location.origin + location.pathname;
+  const msg = 'Free power rankings, game previews and league odds for PCAHA minor hockey. Follow your team and see every game for the week: ';
+  const enc = encodeURIComponent, full = enc(msg + url);
+  return `<aside class="panel sharecard">
+    <h2>Know another hockey parent?</h2>
+    <p>RinkRank is free and independent. Share it with your team chat.</p>
+    <div class="sharebtns">
+      ${navigator.share ? `<button type="button" class="native" data-shareapp="1">Share…</button>` : ''}
+      <a class="wa" href="https://wa.me/?text=${full}" target="_blank" rel="noopener">WhatsApp</a>
+      <a href="sms:?&body=${full}">Text message</a>
+      <a href="mailto:?subject=${enc('Hockey rankings and game previews')}&body=${full}">Email</a>
+      <a href="https://www.facebook.com/sharer/sharer.php?u=${enc(url)}" target="_blank" rel="noopener">Facebook</a>
+      <button type="button" data-copylink="1" style="grid-column:1 / -1">Copy link</button>
+    </div>
+  </aside>`;
+}
+document.addEventListener('click', async e => {
+  const url = location.origin + location.pathname;
+  if (e.target.closest('[data-shareapp]')) {
+    try { await navigator.share({ title: 'RinkRank', text: 'Free power rankings, game previews and league odds for PCAHA minor hockey.', url }); } catch (err) { /* closed */ }
+  } else if (e.target.closest('[data-copylink]')) {
+    try { await navigator.clipboard.writeText(url); toast('Link copied. Paste it into your team chat.'); } catch (err) { toast(url); }
+  }
+});
 function yourWeekPanel() {
   const today = S.index.today, end = new Date(new Date(today + 'T12:00:00').getTime() + 7 * 864e5).toISOString().slice(0, 10);
   const items = [];
@@ -692,7 +729,7 @@ function viewHome(D) {
   const tl = t => `<a href="#${S.div}-team-${t.id}">${esc(shortName(t))}</a>`;
   const riseList = n => `<ul class="plain">${risers.slice(0, n).map(m => `<li><span class="mv up">▲${m.d}</span> ${tl(m.t)} <span class="note">${esc(m.t.c)}: #${m.from} → #${m.to}</span></li>`).join('') || '<li class="note">No big moves this week.</li>'}</ul>`;
   const upList = n => `<ul class="plain">${ups.slice(0, n).map(u => { const hw = u.hs > u.as, w = D.teams[hw ? u.h : u.a], l = D.teams[hw ? u.a : u.h];
-    return `<li>${tl(w)} beat ${tl(l)} <a href="#${S.div}-game-${u.g}">${Math.max(u.hs, u.as)}-${Math.min(u.hs, u.as)}</a> <span class="note">${esc(dateLabel(u.d))} · ${sideWord(u.p).toLowerCase()} going in</span></li>`; }).join('') || '<li class="note">No big upsets in the last seven days.</li>'}</ul>`;
+    return `<li>${tl(w)} beat ${tl(l)} <a href="#${S.div}-game-${u.g}">${Math.max(u.hs, u.as)}-${Math.min(u.hs, u.as)}</a> <span class="note">${esc(dateLabel(u.d))} · ${upsetWord(u.p)}</span></li>`; }).join('') || '<li class="note">No big upsets in the last seven days.</li>'}</ul>`;
   let watchPanel;
   if (feat) {
     const h = D.teams[feat.h], a = D.teams[feat.a], keys = matchKeys(D, h, a, feat).slice(0, 3);
@@ -712,9 +749,11 @@ function viewHome(D) {
     watchPanel = `<section class="panel feature w6"><div class="phead"><h2>Game to watch</h2></div><p class="note">No games between ranked teams in the next seven days for this selection.</p></section>`;
   }
   return `
+  <div class="homehead"><div>
   <p class="eyebrow">${esc(D.div)} ${levelName()} · ${esc(dateLabel(today))}</p>
   <h1>${esc(D.div)} ${S.gender === 'female' ? 'Female ' : ''}${S.level === 'house' ? 'House' : 'Rep'} at a glance</h1>
   <p class="lede">The top of the rankings, your team, the games coming up and the week's best matchup. Every team and game links through to its full scouting report.</p>
+  </div>${shareCard()}</div>
   <div class="dash">
     ${yourWeekPanel()}
     <section class="panel w6">
@@ -964,7 +1003,7 @@ function viewGames(D) {
   ${games.length ? `<div class="days">${Object.entries(byDay).map(([d, gs]) => `<section class="day"><h3>${esc(dateLabel(d))}</h3><div class="games">${gs.map(g => gameCard(D, g)).join('')}</div></section>`).join('')}</div>`
     : '<p class="note">No games scheduled in the next two weeks for this selection.</p>'}
   <h2>Upsets, last 30 days</h2>
-  <p class="note">Results where the winner was a clear underdog going in.</p>
+  <p class="note">Results where the winner faced a tough game or a big challenge going in.</p>
   <div class="tframe"><table><thead><tr><th class="l">Date</th><th class="l">Winner</th><th class="l">Loser</th><th>Score</th><th class="l">${tipSpan('upset', 'Winner going in')}</th></tr></thead>
   <tbody>${ups.map(u => { const hw = u.hs > u.as; const w = D.teams[hw ? u.h : u.a], l = D.teams[hw ? u.a : u.h];
     return `<tr><td class="l num">${esc(u.d.slice(5))}</td><td class="l team"><a href="#${S.div}-team-${w.id}">${esc(w.n)}</a></td><td class="l team"><a href="#${S.div}-team-${l.id}">${esc(l.n)}</a></td><td class="num">${Math.max(u.hs, u.as)}-${Math.min(u.hs, u.as)}</td><td class="l">${sideWord(u.p)}</td></tr>`; }).join('') || '<tr><td class="l" colspan="5">No big upsets in this selection.</td></tr>'}</tbody></table></div>`;
@@ -1191,7 +1230,7 @@ function viewWeek(D) {
   <ul class="plain">${risers.map(m => li('', `<span class="mv up">▲${m.d}</span> ${tl(m.t)} <span class="note">${esc(m.t.c)}: #${m.from} → #${m.to}</span>`)).join('') || '<li class="note">No big moves.</li>'}</ul>
   <h2>Upsets</h2>
   ${ups.length ? `<ul class="plain">${ups.map(u => { const hw = u.hs > u.as, w = D.teams[hw ? u.h : u.a], l = D.teams[hw ? u.a : u.h];
-    return li('', `${tl(w)} beat ${tl(l)} ${Math.max(u.hs, u.as)}-${Math.min(u.hs, u.as)} <span class="note">${esc(dateLabel(u.d))} · ${sideWord(u.p).toLowerCase()} going in</span>`); }).join('')}</ul>` : '<p class="note">No big upsets this week.</p>'}
+    return li('', `${tl(w)} beat ${tl(l)} ${Math.max(u.hs, u.as)}-${Math.min(u.hs, u.as)} <span class="note">${esc(dateLabel(u.d))} · ${upsetWord(u.p)}</span>`); }).join('')}</ul>` : '<p class="note">No big upsets this week.</p>'}
   <h2>Standout performances</h2>
   ${perf.length ? `<ul class="plain">${perf.slice(0, 6).map(({ t, g }) => { const o = D.teams[g.o];
     return li('', `${tl(t)} ${g.r === 'W' ? 'beat' : g.r === 'T' ? 'tied' : 'lost to'} ${o ? tl(o) : 'an opponent'} ${g.gf}-${g.ga}, <b>${sgn(g.pf)}</b> goals better than expected <span class="note">${esc(dateLabel(g.d))}</span>`); }).join('')}</ul>` : '<p class="note">Nothing far above expectations this week.</p>'}
