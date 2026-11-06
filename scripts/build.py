@@ -430,7 +430,7 @@ def build_division(div, data_dir, sheets, sched_meta, today, pred_log):
         gf_r, ga_r, net = rt
         prev = rating(tid, model_prev)
         opp_nets = [rating(o)[2] for o in t['opp'] if rating(o)]
-        fut = [g for g in upcoming if tid in (g['homeTeamId'], g['awayTeamId'])]
+        fut = sorted((g for g in upcoming if tid in (g['homeTeamId'], g['awayTeamId'])), key=lambda g: g['startTime'] or g['date'])
         fut_opps = [g['awayTeamId'] if g['homeTeamId'] == tid else g['homeTeamId'] for g in fut]
         fut_nets = [rating(o)[2] for o in fut_opps if rating(o)]
         last5 = t['log'][-5:]
@@ -449,6 +449,13 @@ def build_division(div, data_dir, sheets, sched_meta, today, pred_log):
             'prevNet': r1(prev[2], 2) if prev else None,
             'sos': r1(np.mean(opp_nets), 2) if opp_nets else None,
             'sosFut': r1(np.mean(fut_nets), 2) if fut_nets else None,
+            'nFut': len(fut),
+            # The next eight scheduled games, any distance ahead: date, opponent, home?, rink,
+            # and this team's chance of winning (ties count as half), for "what's ahead".
+            'fut': [[g['date'], o, int(g['homeTeamId'] == tid), g.get('arena'),
+                     r1((lambda p: (p[0] + p[1] / 2) if g['homeTeamId'] == tid else (p[2] + p[1] / 2))(model.outcome_probs(g['homeTeamId'], g['awayTeamId'])) * 100, 0)
+                     if model.has(o) else None, g.get('startTime'), g['id']]
+                    for g, o in list(zip(fut, fut_opps))[:8]],
             'ptsPct': r1(t['pts'] / t['gp'] * 100, 0),
             'xPtsPct': r1(t['xpts'] / t['gp'] * 100, 0),
             'form': ''.join(x['r'] for x in last5),
@@ -649,14 +656,18 @@ def build_division(div, data_dir, sheets, sched_meta, today, pred_log):
             apts = np.where(ag > hg, ps['w'], np.where(hg == ag, ps['t'], ps['l']))
             pts = np.tile(base_pts, (SIMS, 1))
             gd = np.tile(base_gd, (SIMS, 1))
+            wins = np.zeros((SIMS, len(tids)), int)
             for j in range(len(rem)):
                 pts[:, hi[j]] += hpts[:, j]
                 pts[:, ai[j]] += apts[:, j]
+                wins[:, hi[j]] += hg[:, j] > ag[:, j]
+                wins[:, ai[j]] += ag[:, j] > hg[:, j]
                 gd[:, hi[j]] += hg[:, j] - ag[:, j]
                 gd[:, ai[j]] += ag[:, j] - hg[:, j]
         else:
             pts = np.tile(base_pts, (SIMS, 1))
             gd = np.tile(base_gd, (SIMS, 1))
+            wins = np.zeros((SIMS, len(tids)), int)
         score = pts * 1000 + gd + rng.random((SIMS, len(tids))) * 0.5
         grp_out = []
         for gname, gteams in groups.items():
@@ -677,6 +688,12 @@ def build_division(div, data_dir, sheets, sched_meta, today, pred_log):
                     'p1': r1((rk == 1).mean() * 100, 0),
                     'top': r1((rk <= max(1, len(cols) // 2)).mean() * 100, 0),
                     'avg': r1(rk.mean()),
+                    # "What it takes": for each number of wins in the games left, how often the
+                    # team finished top half and first. Only win counts seen in 2% of runs or more.
+                    'need': [[int(w), r1((rk[wins[:, cols[k]] == w] <= max(1, len(cols) // 2)).mean() * 100, 0),
+                              r1((rk[wins[:, cols[k]] == w] == 1).mean() * 100, 0)]
+                             for w in range(int(wins[:, cols[k]].max()) + 1)
+                             if (wins[:, cols[k]] == w).mean() >= 0.02],
                 })
             scenarios(rows_out, ps, played=len(played) > 0)
             rows_out.sort(key=lambda r: r['avg'])
