@@ -193,7 +193,31 @@ table.compare td.win { font-weight: 700; color: var(--blue); }
 #toast { position: fixed; left: 50%; bottom: calc(24px + env(safe-area-inset-bottom, 0px)); transform: translateX(-50%); background: var(--ink); color: var(--board); padding: 10px 16px; border-radius: 8px; font-size: 14px; z-index: 40; max-width: calc(100vw - 32px); overflow-wrap: anywhere; }
 footer { border-top: 1px solid var(--line); color: var(--muted); font-size: 14px; padding-block: 18px 30px; }
 .loading { color: var(--muted); padding: 40px 0; }
+/* dashboard: a 12-column grid of panels that stacks on phones */
+.dash { display: grid; grid-template-columns: repeat(12, minmax(0, 1fr)); gap: 16px; }
+.dash > .panel { min-width: 0; }
+.dash .w4 { grid-column: span 4; } .dash .w5 { grid-column: span 5; } .dash .w6 { grid-column: span 6; } .dash .w7 { grid-column: span 7; } .dash .w8 { grid-column: span 8; } .dash .w12 { grid-column: span 12; }
+.dash h2 { margin: 0 0 10px; font-size: 21px; }
+.phead { display: flex; justify-content: space-between; align-items: baseline; gap: 10px; flex-wrap: wrap; }
+.phead a { font-weight: 600; font-size: 14px; white-space: nowrap; }
+.feature { border-top: 4px solid var(--red); }
+.feature h3 { font: 800 clamp(22px, 3vw, 28px)/1.1 var(--display); text-transform: uppercase; margin: 4px 0 10px; }
+.feature h3 a { color: var(--ink); }
+.minirank { width: 100%; }
+.minirank td { padding: 7px 6px; }
+.minirank .team { min-width: 0; }
+.grow { display: grid; grid-template-columns: 1fr auto; gap: 4px 10px; align-items: center; padding: 9px 0; border-bottom: 1px solid var(--line); }
+.grow:last-child { border-bottom: 0; }
+.grow .who { font-weight: 700; color: var(--ink); overflow-wrap: anywhere; line-height: 1.3; }
+.grow .who small { display: block; font-weight: 400; color: var(--muted); font-size: 13px; }
+.grow .edge { font: 600 13px/1.2 var(--body); text-align: right; white-space: nowrap; }
+.grow .sbar { grid-column: 1 / -1; }
+.grow .sbar .sbar-track { height: 6px; }
+@media (max-width: 900px) { .dash .w4, .dash .w5, .dash .w7 { grid-column: span 6; } .dash .w8 { grid-column: span 12; } }
 @media (max-width: 640px) {
+  .dash > .panel { grid-column: 1 / -1 !important; }
+  .grow { grid-template-columns: 1fr; }
+  .grow .edge { text-align: left; white-space: normal; }
   .hide-sm { display: none; }
   th, td { padding: 8px 7px; }
   header { position: relative; top: 0; }
@@ -207,7 +231,7 @@ footer { border-top: 1px solid var(--line); color: var(--muted); font-size: 14px
 
 <header>
   <div class="wrap bar">
-    <a class="brand" href="#u13-rankings"><b>Rink<i>Rank</i></b><span>Independent stats for Lower Mainland minor hockey</span></a>
+    <a class="brand" href="#u13-home" id="brand"><b>Rink<i>Rank</i></b><span>Independent stats for Lower Mainland minor hockey</span></a>
     <div class="divs" id="divs" role="group" aria-label="Age group"></div>
     <div class="divs levels" id="levels" role="group" aria-label="Rep or house"></div>
     <div class="divs levels" id="genders" role="group" aria-label="Mixed or female"></div>
@@ -223,7 +247,7 @@ footer { border-top: 1px solid var(--line); color: var(--muted); font-size: 14px
 const $ = (s, el = document) => el.querySelector(s);
 const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const S = { index: null, data: {}, div: 'u13', view: 'rankings', team: null, cat: {}, region: 'pcaha', q: '', sort: 'power', gamesCat: 'all' };
-const VIEWS = [['rankings','Rankings'],['week','This week'],['games','Games'],['leagues','Projections'],['record','Track record'],['clubs','Clubs'],['search','Search'],['method','How it works']];
+const VIEWS = [['home','Home'],['rankings','Rankings'],['week','This week'],['games','Games'],['leagues','Projections'],['record','Track record'],['clubs','Clubs'],['search','Search'],['method','How it works']];
 const GLOBAL_VIEWS = new Set(['clubs', 'method', 'search']);
 const LEVELS = [['rep', 'Rep'], ['house', 'House']];
 const levelOf = c => /\bC\b/.test(c || '') ? 'house' : 'rep';
@@ -374,8 +398,8 @@ document.addEventListener('click', async e => {
 function parseHash() {
   const h = location.hash.slice(1);
   if (GLOBAL_VIEWS.has(h)) return { view: h };
-  const m = h.match(/^(u\d+)-(rankings|week|games|leagues|record|team|game|match)(?:-(\d+))?(?:-(\d+))?$/);
-  if (!m) return { div: S.div, view: 'rankings' };
+  const m = h.match(/^(u\d+)-(home|rankings|week|games|leagues|record|team|game|match)(?:-(\d+))?(?:-(\d+))?$/);
+  if (!m) return { div: S.div, view: 'home' };
   return { div: m[1], view: m[2], team: m[3] ? +m[3] : null, team2: m[4] ? +m[4] : null };
 }
 function go(h) { if (location.hash !== '#' + h) location.hash = h; else render(); }
@@ -385,6 +409,7 @@ function chrome() {
   $('#genders').innerHTML = GENDERS.map(([k, n]) => `<button type="button" data-gender="${k}" aria-pressed="${S.gender === k}">${n}</button>`).join('');
   $('#divs').innerHTML = S.index.divisions.map(d =>
     `<button type="button" data-div="${d.id}" aria-pressed="${d.id === S.div}">${d.name}</button>`).join('');
+  $('#brand').setAttribute('href', `#${S.div}-home`);
   $('#views').innerHTML = VIEWS.map(([k, n]) => {
     const href = GLOBAL_VIEWS.has(k) ? `#${k}` : `#${S.div}-${k}`;
     const cur = S.view === k || (k === 'rankings' && S.view === 'team') || (k === 'games' && (S.view === 'game' || S.view === 'match'));
@@ -430,10 +455,112 @@ async function render() {
     app.innerHTML = g && D.teams[g.h] && D.teams[g.a] ? viewMatch(D, D.teams[g.h], D.teams[g.a], g) : '<p class="loading">That game isn\'t in the current data. It may have been rescheduled.</p>';
   }
   else if (S.view === 'match' && D.teams[S.team] && D.teams[r.team2]) app.innerHTML = viewMatch(D, D.teams[S.team], D.teams[r.team2], null);
-  else app.innerHTML = viewRankings(D);
+  else if (S.view === 'rankings') app.innerHTML = viewRankings(D);
+  else app.innerHTML = viewHome(D);
   bind(D);
   fillMine();
   window.scrollTo(0, 0);
+}
+
+/* ---------- home dashboard ---------- */
+// One page that pulls the best of every section together for the age group and
+// level chosen at the top: a featured game with its scouting report, the top of
+// the rankings, the next few days of games, movers, upsets and the league race.
+function pickFeatured(D, games) {
+  // the closest game between the strongest pair of teams in the next week
+  let best = null, bestScore = -1e9;
+  for (const g of games) {
+    const h = D.teams[g.h], a = D.teams[g.a];
+    if (!h || !a || h.cpct == null || a.cpct == null) continue;
+    const score = (h.cpct + a.cpct) / 2 - Math.abs(g.ph - g.pa) * 0.8;
+    if (score > bestScore) { bestScore = score; best = g; }
+  }
+  return best;
+}
+function gameRow(D, g) {
+  const h = D.teams[g.h], a = D.teams[g.a];
+  const share = Math.max(g.ph, g.pa) / Math.max(g.ph + g.pa, 1e-9), w = edgeWord(share);
+  const fav = g.ph >= g.pa ? h : a;
+  return `<div class="grow">
+    <a class="who" href="#${S.div}-game-${g.g}">${esc(shortName(h))} vs ${esc(shortName(a))}<small>${esc(dateLabel(g.d))} ${esc(timeLabel(g.st))}${isWatch(D, g) ? ' · <span class="tag">Game to watch</span>' : ''}</small></a>
+    <span class="edge ${w === 'Even' ? 'note' : g.ph >= g.pa ? 'favh' : 'fava'}">${w === 'Even' ? 'Even' : `${esc(w)}: ${esc(shortName(fav))}`}</span>
+    ${strengthBar(g.ph, g.pt, g.pa, h, a, { noNames: true, small: true }).replace('sbar small', 'sbar')}
+  </div>`;
+}
+function viewHome(D) {
+  const cats = levelCats(D);
+  if (!cats.length) return `<p class="eyebrow">${esc(D.div)} ${levelName()}</p><h1>No teams here</h1><p class="lede">There are no ${esc(D.div)} ${levelName()} teams in this season's data. Try the other switches at the top.</p>`;
+  const cat = currentCat(D);
+  const today = S.index.today;
+  const week = new Date(new Date(today + 'T12:00:00').getTime() + 7 * 864e5).toISOString().slice(0, 10);
+  const lastWk = new Date(new Date(today + 'T12:00:00') - 7 * 864e5).toISOString().slice(0, 10);
+  const mine = g => inLevel(D.teams[g.h].c) || inLevel(D.teams[g.a].c);
+  const upcoming = D.upcoming.filter(g => mine(g) && g.d <= week);
+  const feat = pickFeatured(D, upcoming);
+  // rankings snapshot
+  const rows = rankedList(D, cat, 'all').slice(0, 10), mean = catMean(D, cat);
+  // games: watch games first, then by time, skipping the featured one
+  const list = upcoming.filter(g => !feat || g.g !== feat.g)
+    .sort((x, y) => (isWatch(D, y) - isWatch(D, x)) || ((x.st || x.d) < (y.st || y.d) ? -1 : 1)).slice(0, 7);
+  // movers over the last week
+  const teams = Object.values(D.teams).filter(t => t.rg !== 'visitor' && inLevel(t.c));
+  const risers = teams.filter(t => t.hist.length >= 2 && t.gp >= 4).map(t => {
+    const cur = t.hist[t.hist.length - 1]; let prev = null;
+    for (let i = t.hist.length - 2; i >= 0; i--) if (t.hist[i][0] <= lastWk) { prev = t.hist[i]; break; }
+    return prev ? { t, from: prev[2], to: cur[2], d: prev[2] - cur[2] } : null;
+  }).filter(m => m && m.d > 0).sort((a, b) => b.d - a.d).slice(0, 5);
+  const ups = D.upsets.filter(u => u.d >= lastWk && (inLevel(D.teams[u.h].c) || inLevel(D.teams[u.a].c))).slice(0, 5);
+  // league race: the first league in this level with games left, top five by chance of first
+  const lg = D.projections.find(p => p.kind === 'League' && p.cat === cat) || D.projections.find(p => p.kind === 'League' && inLevel(p.cat));
+  const race = lg ? lg.groups.flatMap(g => g.rows.map(r => ({ ...r, grp: g.name }))).sort((a, b) => b.p1 - a.p1).slice(0, 5) : [];
+  const tl = t => `<a href="#${S.div}-team-${t.id}">${esc(shortName(t))}</a>`;
+  return `
+  <p class="eyebrow">${esc(D.div)} ${levelName()} · ${esc(dateLabel(today))}</p>
+  <h1>${esc(D.div)} ${S.gender === 'female' ? 'Female ' : ''}${S.level === 'house' ? 'House' : 'Rep'} at a glance</h1>
+  <p class="lede">The week's best matchup, the top of the rankings and the games coming up. Every team and game links through to its full scouting report.</p>
+  ${mineSection(false)}
+  <div class="dash">
+    ${feat ? (() => { const h = D.teams[feat.h], a = D.teams[feat.a], keys = matchKeys(D, h, a, feat).slice(0, 3);
+      const pw = t => power(D, t), cmp = [['Power', sgn(pw(h)), sgn(pw(a)), pw(h) - pw(a)], ['Record', `${h.w}-${h.l}-${h.t}`, `${a.w}-${a.l}-${a.t}`, h.ptsPct - a.ptsPct],
+        ['Goals for*', fmt(h.off), fmt(a.off), h.off - a.off], ['Goals against*', fmt(h.def), fmt(a.def), a.def - h.def], ['Last 5', formCell(h.form), formCell(a.form), 0]];
+      return `<section class="panel feature w6">
+      <div class="phead"><span class="eyebrow">Featured game · ${esc(dateLabel(feat.d))} ${esc(timeLabel(feat.st))}</span><a href="#${S.div}-game-${feat.g}">Full scouting report →</a></div>
+      <h3><a href="#${S.div}-game-${feat.g}">${esc(shortName(h))} vs ${esc(shortName(a))}</a></h3>
+      ${strengthBar(feat.ph, feat.pt, feat.pa, h, a, { homeAway: true })}
+      <table class="compare" style="width:100%;margin-top:12px"><thead><tr><th>${esc(shortName(h))}</th><th class="mid"></th><th>${esc(shortName(a))}</th></tr></thead>
+        <tbody>${cmp.map(([k, x, y, d]) => `<tr><td class="num ${d > 0 ? 'win' : ''}">${x}</td><td class="mid">${k}</td><td class="num ${d < 0 ? 'win' : ''}">${y}</td></tr>`).join('')}</tbody></table>
+      <h2 style="margin:16px 0 8px;font-size:17px">Keys to the game</h2>
+      <ul class="report">${keys.map(k => `<li data-tag="i">${k}</li>`).join('')}</ul>
+      <p class="note" style="margin:10px 0 0">${esc(feat.ar || '')}${feat.s && D.schedules[feat.s] ? (feat.ar ? ' · ' : '') + esc(D.schedules[feat.s].n) : ''}</p>
+    </section>`; })() : ''}
+    <section class="panel w6">
+      <div class="phead"><h2>Power rankings</h2><a href="#${S.div}-rankings">Full rankings →</a></div>
+      ${cats.length > 1 ? `<div class="chips" role="group" aria-label="Category" style="margin-bottom:8px">${cats.map(c => `<button type="button" class="chip" data-hcat="${esc(c.c)}" aria-pressed="${c.c === cat}">${esc(c.c)}</button>`).join('')}</div>` : ''}
+      <table class="minirank"><tbody>${rows.map(({ t, rank, move }) => `<tr>
+        <td class="l rank">${rank}</td><td class="l">${moveCell(move)}</td>
+        <td class="l team">${starBtn(S.div, t.id)}<a href="#${S.div}-team-${t.id}">${esc(shortName(t))}</a>${t.gp < 6 ? '<span class="prov" tabindex="0" data-tip="early">EARLY</span>' : ''}</td>
+        <td class="num hide-sm">${t.w}-${t.l}-${t.t}</td><td>${powerCell(t.net - mean)}</td></tr>`).join('')}</tbody></table>
+    </section>
+    <section class="panel ${feat ? 'w7' : 'w6'}">
+      <div class="phead"><h2>Coming up</h2><a href="#${S.div}-games">All games →</a></div>
+      ${list.length ? list.map(g => gameRow(D, g)).join('') : '<p class="note">No games in the next seven days for this selection.</p>'}
+    </section>
+    <section class="panel w5">
+      <div class="phead"><h2>${lg ? 'League race' : 'Climbing'}</h2><a href="#${S.div}-${lg ? 'leagues' : 'week'}">${lg ? 'Projections' : 'This week'} →</a></div>
+      ${lg ? `<p class="note" style="margin:0 0 6px">${esc(lg.name)}: chance of finishing first${lg.groups.length > 1 ? ' in their group' : ''}.</p>
+        <table class="minirank"><tbody>${race.map(r => { const t = D.teams[r.id]; return `<tr><td class="l team">${t ? tl(t) : r.id}${r.grp ? `<small>${esc(r.grp)}</small>` : ''}</td><td class="num">${r.pts} pts</td><td class="num"><b>${pct(r.p1)}</b></td></tr>`; }).join('')}</tbody></table>`
+      : `<ul class="plain">${risers.map(m => `<li><span class="mv up">▲${m.d}</span> ${tl(m.t)} <span class="note">#${m.from} → #${m.to}</span></li>`).join('') || '<li class="note">No big moves this week.</li>'}</ul>`}
+    </section>
+    ${lg ? `<section class="panel w6">
+      <div class="phead"><h2>Climbing</h2><a href="#${S.div}-week">This week →</a></div>
+      <ul class="plain">${risers.map(m => `<li><span class="mv up">▲${m.d}</span> ${tl(m.t)} <span class="note">${esc(m.t.c)}: #${m.from} → #${m.to}</span></li>`).join('') || '<li class="note">No big moves this week.</li>'}</ul>
+    </section>` : ''}
+    <section class="panel ${lg ? 'w6' : 'w12'}">
+      <div class="phead"><h2>Upsets this week</h2><a href="#${S.div}-games">More →</a></div>
+      <ul class="plain">${ups.map(u => { const hw = u.hs > u.as, w = D.teams[hw ? u.h : u.a], l = D.teams[hw ? u.a : u.h];
+        return `<li>${tl(w)} beat ${tl(l)} <a href="#${S.div}-game-${u.g}">${Math.max(u.hs, u.as)}-${Math.min(u.hs, u.as)}</a> <span class="note">${esc(dateLabel(u.d))} · ${sideWord(u.p).toLowerCase()} going in</span></li>`; }).join('') || '<li class="note">No big upsets in the last seven days.</li>'}</ul>
+    </section>
+  </div>`;
 }
 
 /* ---------- rankings ---------- */
@@ -1138,7 +1265,8 @@ function bind(D) {
     const b = e.target.closest('button'); const a = e.target.closest('[data-cat-link]');
     if (a) { S.cat[S.div] = a.dataset.catLink; return; }
     if (!b) return;
-    if (b.dataset.cat) { S.cat[S.div] = b.dataset.cat; S.q = ''; app.innerHTML = viewRankings(D); bind(D); }
+    if (b.dataset.hcat) { S.cat[S.div] = b.dataset.hcat; app.innerHTML = viewHome(D); bind(D); fillMine(); }
+    else if (b.dataset.cat) { S.cat[S.div] = b.dataset.cat; S.q = ''; app.innerHTML = viewRankings(D); bind(D); }
     else if (b.dataset.region) { S.region = b.dataset.region; app.innerHTML = viewRankings(D); bind(D); }
     else if (b.dataset.sort) { S.sort = b.dataset.sort; app.innerHTML = viewRankings(D); bind(D); }
     else if (b.dataset.gcat) { S.gamesCat = b.dataset.gcat; app.innerHTML = viewGames(D); bind(D); }
@@ -1159,7 +1287,7 @@ function bind(D) {
 }
 document.addEventListener('click', e => {
   const b = e.target.closest('#divs button'); if (!b) return;
-  const v = S.view === 'team' || GLOBAL_VIEWS.has(S.view) ? 'rankings' : S.view;
+  const v = ['team', 'game', 'match'].includes(S.view) || GLOBAL_VIEWS.has(S.view) ? 'home' : S.view;
   S.q = ''; store('rr-div', b.dataset.div); go(`${b.dataset.div}-${v}`);
 });
 window.addEventListener('hashchange', render);
