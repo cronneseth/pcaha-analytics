@@ -191,6 +191,7 @@ table.compare td.win { font-weight: 700; color: var(--blue); }
 .sharebtn { font: 600 14px/1 var(--body); padding: 8px 14px; border-radius: 999px; border: 1px solid var(--blue); background: var(--board); color: var(--blue); cursor: pointer; vertical-align: 8px; text-transform: none; letter-spacing: 0; }
 .sharebtn:hover { background: var(--blue); color: #fff; }
 #toast { position: fixed; left: 50%; bottom: calc(24px + env(safe-area-inset-bottom, 0px)); transform: translateX(-50%); background: var(--ink); color: var(--board); padding: 10px 16px; border-radius: 8px; font-size: 14px; z-index: 40; max-width: calc(100vw - 32px); overflow-wrap: anywhere; }
+footer b { display: inline-block; margin-top: 6px; color: var(--ink); font-weight: 600; }
 footer { border-top: 1px solid var(--line); color: var(--muted); font-size: 14px; padding-block: 18px 30px; }
 .loading { color: var(--muted); padding: 40px 0; }
 /* dashboard: a 12-column grid of panels that stacks on phones */
@@ -312,7 +313,7 @@ const GLOSS = {
   avgfin: ['Avg finish', 'Average final position in the group across all simulations.'],
   winchance: ['Going in', 'The chance the model gave this team before the game, using only results up to then. Grey numbers are early-season games, before both teams had played three times; those use today\'s ratings.'],
   vsexp: ['Vs expected', 'Actual goal margin minus the margin the ratings expected. +2.0 means the team did two goals better than expected that day.'],
-  odds: ['Strength bar', 'How the two teams compare going in. The longer side has the edge. Words: Even, Slight edge, Clear edge or Strong favourite. It comes from the same ratings as everything else; we show it as a bar rather than percentages because these are kids\' games.'],
+  odds: ['Strength bar', 'How the two teams compare going in. The longer side has the edge. Words: Even, Slight edge, Clear edge or Strong favourite. It comes from the same ratings as everything else; we show it as a bar rather than percentages because these are kids\' games. It isn\'t for betting.'],
   expgoals: ['Expected goals', 'The average score the ratings predict for this game.'],
   watch: ['Game to watch', 'Both teams are in the top quarter of their category and the odds are close.'],
   upset: ['Winner going in', 'How the winner looked before the game: from Strong favourite to Big challenge. Wins from Tough game or Big challenge are the upsets.'],
@@ -454,7 +455,8 @@ function chrome() {
   const upd = S.index.dataUpdated ? new Date(S.index.dataUpdated).toLocaleString('en-CA', { dateStyle: 'medium', timeStyle: 'short', timeZone: 'America/Vancouver' }) : '';
   $('#foot').innerHTML = `RinkRank is an independent site, not affiliated with PCAHA, BC Hockey or Spordle. Game results come from the public PCAHA Spordle data via the open
     <a href="https://github.com/ecoTokenJames/pcaha-stats" target="_blank" rel="noopener">pcaha-stats</a> project. Data as of ${esc(upd)}. ${esc(S.index.season || '')} season.
-    Team-level numbers only. Official results live at <a href="https://games.pcaha.ca" target="_blank" rel="noopener">games.pcaha.ca</a>.`;
+    Team-level numbers only. Official results live at <a href="https://games.pcaha.ca" target="_blank" rel="noopener">games.pcaha.ca</a>.
+    <br><b>RinkRank is for fun and information only. Please don't bet on minor hockey. These are kids' games.</b>`;
 }
 
 async function render() {
@@ -1072,6 +1074,8 @@ function viewMethod() {
   <h2>What every number means</h2>
   <p class="note">The same explanations appear when you hover over (or tap) any underlined label on the site.</p>
   <dl class="gloss">${['level','gender','power','gf','ga','record','move','hist','sched','luck','form','pp','pk','early','region','cpct','topq','odds','watch','winchance','vsexp','upset','projected','p1','top','avgfin','poolwin','status','trend','picked','baseline','confident','calib','source','splits','depth'].map(k => `<dt>${esc(GLOSS[k][0])}</dt><dd>${esc(GLOSS[k][1])}</dd>`).join('')}</dl>
+  <h2>Not for betting</h2>
+  <p>The odds and projections here are a way to understand the season, not a prediction to wager on. Betting on youth sports is a bad idea and is against the spirit of minor hockey.</p>
   <h2>What we don't publish</h2>
   <p>These are kids' games. RinkRank shows team numbers only. Player names and individual stats stay on the official PCAHA site. The ratings use player IDs from the public data for one thing: linking each team to the teams its players came from last season. No player information is shown, stored or shared by this site.</p>
   <h2>Limits</h2>
