@@ -781,7 +781,7 @@ function viewTeam(D, t) {
   ${up.length ? `<h2>Next games</h2><div class="games">${up.slice(0, 6).map(g => gameCard(D, g, t.id)).join('')}</div>` : ''}
   <h2>Matchup check</h2>
   <div class="panel"><div class="controls" style="margin:0 0 10px"><label for="vs" class="eyebrow">Against</label>
-    <select id="vs"><option value="">Pick any ${esc(D.div)} ${levelOf(t.c) === 'house' ? 'house' : 'rep'} team…</option>${Object.values(D.teams).filter(x => x.id !== t.id && levelOf(x.c) === levelOf(t.c)).sort((a, b) => a.n.localeCompare(b.n)).map(x => `<option value="${x.id}">${esc(x.n)}</option>`).join('')}</select></div>
+    <select id="vs"><option value="">Pick any ${esc(D.div)} ${genderOf(t.c) === 'female' ? 'female ' : ''}${levelOf(t.c) === 'house' ? 'house' : 'rep'} team…</option>${Object.values(D.teams).filter(x => x.id !== t.id && levelOf(x.c) === levelOf(t.c) && genderOf(x.c) === genderOf(t.c)).sort((a, b) => a.n.localeCompare(b.n)).map(x => `<option value="${x.id}">${esc(x.n)}</option>`).join('')}</select></div>
     <div id="vsout" class="note">Pick an opponent to see the chances on neutral ice.</div></div>
   <h2>Game by game</h2>
   <div class="tframe"><table>
