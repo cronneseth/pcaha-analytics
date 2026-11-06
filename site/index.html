@@ -220,16 +220,18 @@ footer { border-top: 1px solid var(--line); color: var(--muted); font-size: 14px
 .snap .v { font: 800 22px/1.15 var(--display); }
 .myteam { border-top: 4px solid var(--tie); }
 .dash .wide { grid-column: 1 / -1; }
-.homehead { display: grid; grid-template-columns: minmax(0, 1fr) 360px; gap: 16px 24px; align-items: start; margin-bottom: 18px; }
+.homehead { display: grid; grid-template-columns: minmax(0, 1fr) 390px; gap: 14px 24px; align-items: center; margin-bottom: 18px; }
 .homehead .lede { margin-bottom: 0; }
-.sharecard { border-top: 4px solid var(--good); }
-.sharecard h2 { margin: 0 0 4px; font-size: 19px; }
-.sharecard p { margin: 0 0 10px; font-size: 14px; color: var(--muted); }
-.sharebtns { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
-.sharebtns a, .sharebtns button { display: flex; align-items: center; justify-content: center; gap: 6px; font: 600 14px/1 var(--body); padding: 10px 8px; border-radius: 8px; border: 1px solid var(--line); background: var(--board); color: var(--ink); cursor: pointer; text-decoration: none; }
-.sharebtns a:hover, .sharebtns button:hover { border-color: var(--blue); text-decoration: none; }
-.sharebtns .wa { background: #25d366; border-color: #25d366; color: #06301a; }
-.sharebtns .native { grid-column: 1 / -1; background: var(--blue); border-color: var(--blue); color: #fff; }
+/* share card: navy panel, red-white-red stripe, one row of white pills */
+.sharecard { position: relative; overflow: hidden; background: linear-gradient(135deg, #123a7a, #1d5bb8); color: #fff; border: 0; border-radius: 10px; padding: 16px 16px 14px; }
+.sharecard::before { content: ""; position: absolute; inset: 0 0 auto; height: 4px; background: linear-gradient(90deg, #c8203a 0 40%, #fff 40% 60%, #c8203a 60%); }
+.sharecard h2 { margin: 0 0 2px; font-size: 18px; color: #fff; }
+.sharecard p { margin: 0 0 10px; font-size: 13px; color: rgba(255, 255, 255, .85); }
+.sharebtns { display: flex; flex-wrap: wrap; gap: 6px; }
+.sharebtns a, .sharebtns button { font: 600 13px/1 var(--body); padding: 8px 11px; border-radius: 999px; border: 0; background: #fff; color: #123a7a; cursor: pointer; text-decoration: none; }
+.sharebtns a:hover, .sharebtns button:hover { background: #e3ecf8; text-decoration: none; }
+.sharebtns .native { background: #c8203a; color: #fff; }
+.sharebtns .native:hover { background: #a81a30; }
 .wkrow { display: grid; grid-template-columns: 150px 1fr auto auto; gap: 4px 14px; align-items: center; padding: 10px 0; border-bottom: 1px solid var(--line); }
 .wkrow:last-child { border-bottom: 0; }
 .wkrow .who small { display: block; color: var(--muted); font-size: 13px; }
@@ -619,16 +621,17 @@ function shareCard() {
   const url = location.origin + location.pathname;
   const msg = 'Free power rankings, game previews and league odds for PCAHA minor hockey. Follow your team and see every game for the week: ';
   const enc = encodeURIComponent, full = enc(msg + url);
+  const phone = matchMedia('(pointer: coarse)').matches;  // touch devices get the phone's own share sheet
   return `<aside class="panel sharecard">
-    <h2>Know another hockey parent?</h2>
-    <p>RinkRank is free and independent. Share it with your team chat.</p>
+    <h2>Spread the word</h2>
+    <p>Know another hockey parent? Share RinkRank with your team chat.</p>
     <div class="sharebtns">
-      ${navigator.share ? `<button type="button" class="native" data-shareapp="1">Share…</button>` : ''}
-      <a class="wa" href="https://wa.me/?text=${full}" target="_blank" rel="noopener">WhatsApp</a>
-      <a href="sms:?&body=${full}">Text message</a>
-      <a href="mailto:?subject=${enc('Hockey rankings and game previews')}&body=${full}">Email</a>
-      <a href="https://www.facebook.com/sharer/sharer.php?u=${enc(url)}" target="_blank" rel="noopener">Facebook</a>
-      <button type="button" data-copylink="1" style="grid-column:1 / -1">Copy link</button>
+      ${phone && navigator.share ? `<button type="button" class="native" data-shareapp="1">Share…</button>` : ''}
+      <a href="https://wa.me/?text=${full}" target="_blank" rel="noopener">WhatsApp</a>
+      ${phone && !navigator.share ? `<a href="sms:?&body=${full}">Text</a>` : ''}
+      ${phone && navigator.share ? '' : `<a href="mailto:?subject=${enc('Hockey rankings and game previews')}&body=${full}">Email</a>`}
+      ${phone ? '' : `<a href="https://www.facebook.com/sharer/sharer.php?u=${enc(url)}" target="_blank" rel="noopener">Facebook</a>`}
+      <button type="button" data-copylink="1">Copy link</button>
     </div>
   </aside>`;
 }
