@@ -219,10 +219,23 @@ footer { border-top: 1px solid var(--line); color: var(--muted); font-size: 14px
 .snap .k { font: 600 11px/1.2 var(--mono); text-transform: uppercase; letter-spacing: .8px; color: var(--muted); }
 .snap .v { font: 800 22px/1.15 var(--display); }
 .myteam { border-top: 4px solid var(--tie); }
+.dash .wide { grid-column: 1 / -1; }
+.wkrow { display: grid; grid-template-columns: 150px 1fr auto auto; gap: 4px 14px; align-items: center; padding: 10px 0; border-bottom: 1px solid var(--line); }
+.wkrow:last-child { border-bottom: 0; }
+.wkrow .who small { display: block; color: var(--muted); font-size: 13px; }
+.wkrow .edge { font: 600 13px/1.2 var(--body); white-space: nowrap; }
+.summary { font-size: 17px; line-height: 1.55; max-width: 72ch; margin: 0 0 6px; }
+.panel .summary { font-size: 16px; }
+.outlook { border-left: 4px solid var(--blue); }
+body.simple .adv { display: none !important; }
+body.simple { font-size: 17px; }
+body.simple .note, body.simple .team small { font-size: 15px; }
 @media (max-width: 900px) { .dash { grid-template-columns: minmax(0, 1fr); } }
 @media (max-width: 640px) {
   .grow { grid-template-columns: 1fr; }
   .snap .v { font-size: 19px; }
+  .wkrow { grid-template-columns: 1fr auto; }
+  .wkrow .when { grid-column: 1 / -1; }
   .grow .edge { text-align: left; white-space: normal; }
   .hide-sm { display: none; }
   th, td { padding: 8px 7px; }
@@ -241,6 +254,7 @@ footer { border-top: 1px solid var(--line); color: var(--muted); font-size: 14px
     <div class="divs" id="divs" role="group" aria-label="Age group"></div>
     <div class="divs levels" id="levels" role="group" aria-label="Rep or house"></div>
     <div class="divs levels" id="genders" role="group" aria-label="Mixed or female"></div>
+    <div class="divs levels" id="modes" role="group" aria-label="How much detail"></div>
     <nav class="views" id="views" aria-label="Sections"></nav>
   </div>
   <div class="redline"></div>
@@ -307,6 +321,8 @@ const GLOSS = {
   cpct: ['Category percentile', 'Share of teams in the same category (for example U13 A) that a team is rated above. 50 is a typical team; 90 means better than nine in ten.'],
   topq: ['Top 25%', 'How many of the association\'s teams sit in the top quarter of their category.'],
   poolwin: ['Pool win', 'Share of simulations where the team finished first in its tournament pool, on points and then goal difference.'],
+  need: ['For top half', 'How many of the games left a team needs to win to finish in the top half of its group in most (three in four) simulations. "Looks safe" means it gets there almost whatever happens; "Long shot" means it would take a big run plus some help from other results.'],
+  ahead: ['What\'s ahead', 'The next scheduled games, with how each one looks going in using today\'s ratings. Games further out will look different by the time they come.'],
   depth: ['Goals from top three', 'Share of the team\'s goals scored by its three leading scorers. High numbers mean the offence depends on a few players.'],
 };
 const tipAttr = k => GLOSS[k] ? ` data-tip="${k}"` : '';
@@ -412,6 +428,7 @@ function go(h) { if (location.hash !== '#' + h) location.hash = h; else render()
 
 function chrome() {
   $('#levels').innerHTML = LEVELS.map(([k, n]) => `<button type="button" data-level="${k}" aria-pressed="${S.level === k}">${n}</button>`).join('');
+  $('#modes').innerHTML = [['simple', 'Simple'], ['detailed', 'Detailed']].map(([k, n]) => `<button type="button" data-mode="${k}" aria-pressed="${(k === 'simple') === S.simple}">${n}</button>`).join('');
   $('#genders').innerHTML = GENDERS.map(([k, n]) => `<button type="button" data-gender="${k}" aria-pressed="${S.gender === k}">${n}</button>`).join('');
   $('#divs').innerHTML = S.index.divisions.map(d =>
     `<button type="button" data-div="${d.id}" aria-pressed="${d.id === S.div}">${d.name}</button>`).join('');
@@ -462,7 +479,7 @@ async function render() {
   }
   else if (S.view === 'match' && D.teams[S.team] && D.teams[r.team2]) app.innerHTML = viewMatch(D, D.teams[S.team], D.teams[r.team2], null);
   else if (S.view === 'rankings') app.innerHTML = viewRankings(D);
-  else app.innerHTML = viewHome(D);
+  else { await Promise.all([...new Set(stars().map(k => k.split(':')[0]))].map(d => loadDiv(d).catch(() => null))); app.innerHTML = viewHome(D); }
   bind(D);
   fillMine();
   window.scrollTo(0, 0);
@@ -493,43 +510,157 @@ function gameRow(D, g) {
     ${strengthBar(g.ph, g.pt, g.pa, h, a, { noNames: true, small: true }).replace('sbar small', 'sbar')}
   </div>`;
 }
+
+/* ---------- parent-facing helpers: followed teams, plain-English summary, what's ahead ---------- */
+function follows() {
+  return stars().map(k => { const [div, id] = k.split(':'), DD = S.data[div]; return DD && DD.teams[id] ? { key: k, div, D: DD, t: DD.teams[id] } : null; }).filter(Boolean);
+}
+const ordinal = n => n + (n % 100 >= 11 && n % 100 <= 13 ? 'th' : ['th', 'st', 'nd', 'rd'][n % 10] || 'th');
+const mapLink = ar => ar ? `<a href="https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(ar + ', BC')}" target="_blank" rel="noopener">${esc(ar)}</a>` : '';
+function chanceWord(p) {  // own chance, ties counted as half, 0-100
+  if (p == null) return 'No rating yet';
+  return p >= 82 ? 'Strong favourite' : p >= 68 ? 'Favourite' : p >= 57 ? 'Slight favourite' : p > 43 ? 'Even' : p > 32 ? 'Slight underdog' : p > 18 ? 'Underdog' : 'Big underdog';
+}
+function rankMove(t, days) {
+  const h = t.hist; if (!h || h.length < 2) return 0;
+  const cut = new Date(new Date(S.index.today + 'T12:00:00') - days * 864e5).toISOString().slice(0, 10);
+  let prev = null; for (let i = h.length - 2; i >= 0; i--) if (h[i][0] <= cut) { prev = h[i]; break; }
+  return prev ? prev[2] - h[h.length - 1][2] : 0;
+}
+// Two or three plain sentences a parent can read at a glance. Kept even-handed: these are kids' teams.
+function teamSummary(D, t) {
+  const nm = esc(shortName(t)), p = t.pct || {};
+  const ranked = t.rg === 'visitor' ? null : rankedList(D, t.c, 'all'), r = ranked ? ranked.find(x => x.t.id === t.id) : null;
+  const gp = t.w + t.l + t.t;
+  if (!gp) return `${nm} haven't played yet this season.`;
+  const mv = rankMove(t, 14);
+  let s1 = `${nm} are ${t.w}-${t.l}-${t.t}${r ? ` and ranked ${ordinal(r.rank)} of ${ranked.length} in ${esc(t.c)}` : ''}`;
+  if (mv >= 3) s1 += `, up ${mv} places in the last two weeks`;
+  else if (mv <= -3) s1 += `, down ${-mv} places over the last two weeks`;
+  s1 += '.';
+  let s2 = '';
+  if (gp < 4) s2 = 'It\'s early, so expect the picture to change as more games come in.';
+  else if (p.off >= 70 && p.def >= 70) s2 = 'They\'re strong at both ends of the ice.';
+  else if (p.off >= 65 && p.off >= p.def) s2 = `Scoring is their strength, at about ${fmt(t.off)} goals a game against an average team.`;
+  else if (p.def >= 65) s2 = `Defence is their strength, allowing about ${fmt(t.def)} goals a game against an average team.`;
+  else if (p.off < 35 && p.def < 35) s2 = 'They\'re still building at both ends of the ice, and results against similar teams are the ones to watch.';
+  else s2 = 'They\'re a balanced team without one standout area.';
+  const wins5 = (t.form.match(/W/g) || []).length;
+  let s3 = '';
+  if (t.sosFut != null && t.sos != null && t.nFut >= 2) {
+    const d = t.sosFut - t.sos;
+    s3 = d > 0.5 ? 'The games ahead look tougher than what they\'ve faced so far.' : d < -0.5 ? 'The games ahead look a little easier than the schedule so far.' : '';
+  }
+  if (!s3 && t.form.length >= 4) s3 = wins5 >= 4 ? `They've won ${wins5} of their last ${t.form.length}.` : wins5 <= 1 ? `Wins have been harder to come by lately, ${wins5} in the last ${t.form.length}.` : '';
+  return [s1, s2, s3].filter(Boolean).join(' ');
+}
+function needInfo(r) {
+  if (!r || !r.need || !r.need.length) return null;
+  const top = r.need.find(x => x[1] >= 75), first = r.need.find(x => x[2] >= 50);
+  return { safe: r.need[0][1] >= 75, help: !top, wTop: top ? top[0] : null, wFirst: first ? first[0] : null, left: r.left };
+}
+function needCell(r) {
+  const n = needInfo(r); if (!n || !r.left) return '';
+  return n.safe ? '<span class="up">Looks safe</span>' : n.help ? '<span class="note">Long shot</span>' : `Win ${n.wTop} of ${n.left}`;
+}
+function leagueOutlook(D, t) {
+  for (const p of D.projections) {
+    if (p.kind !== 'League') continue;
+    for (const g of p.groups) {
+      const r = g.rows.find(x => x.id === t.id); if (!r || !r.left) continue;
+      const n = needInfo(r), nm = esc(shortName(t)), place = g.rows.slice().sort((a, b) => b.pts - a.pts).findIndex(x => x.id === t.id) + 1;
+      let what = '';
+      if (n) {
+        what = n.safe ? 'A top-half finish looks safe from here.'
+          : n.help ? `A top-half finish would take a big run in the ${n.left} games left, plus some help from other results.`
+          : `Winning ${n.wTop} of the ${n.left} games left would make a top-half finish likely.`;
+        if (n.wFirst != null && r.p1 >= 3) what += n.wFirst === 0 ? ' They\'re in a strong spot for first.' : ` Winning ${n.wFirst} would give them a good shot at first.`;
+      }
+      return `<h2>League outlook</h2><div class="panel outlook"><p class="summary" style="margin:0 0 6px">${nm} are ${ordinal(place)} in ${esc(p.name)}${g.name ? ` (${esc(g.name)})` : ''} with ${r.pts} points and ${r.left} game${r.left === 1 ? '' : 's'} left. ${what}</p>
+        <p class="note" style="margin:0">Projected finish: about ${fmt(r.xPts, 0)} points, top half in ${pct(r.top)} of simulations. <a href="#${S.div}-leagues">Full projections →</a></p></div>`;
+    }
+  }
+  return '';
+}
+function aheadSection(D, t) {
+  const fut = t.fut || []; if (!fut.length) return '';
+  const mean = catMean(D, t.c);
+  const test = fut.filter(f => f[4] != null).sort((a, b) => a[4] - b[4])[0];
+  let lead = '';
+  if (t.sosFut != null && t.sos != null) {
+    const d = t.sosFut - t.sos;
+    lead = `The ${t.nFut} game${t.nFut === 1 ? '' : 's'} on the schedule are against opponents who look ${d > 0.5 ? 'tougher than' : d < -0.5 ? 'easier than' : 'about the same as'} the ones so far.`;
+  }
+  if (test && D.teams[test[1]]) lead += ` The biggest test: ${esc(shortName(D.teams[test[1]]))} on ${esc(dateLabel(test[0]))}.`;
+  return `<h2>${tipSpan('ahead', 'What\'s ahead')}</h2>
+  ${lead ? `<p class="summary">${lead}</p>` : ''}
+  <div class="tframe"><table><thead><tr><th class="l">Date</th><th class="l">Opponent</th><th class="l hide-sm">Rink</th><th class="l">Going in</th><th></th></tr></thead><tbody>
+  ${fut.map(([d, o, home, ar, p, st, gid]) => { const ot = D.teams[o]; const up = D.upcoming.some(g => g.g === gid);
+    return `<tr><td class="l num">${esc(dateLabel(d))}<small class="note" style="display:block">${esc(timeLabel(st))}</small></td>
+      <td class="l team">${home ? 'vs' : '@'} ${ot ? `<a href="#${S.div}-team-${o}">${esc(ot.n)}</a>` : 'TBD'}</td>
+      <td class="l hide-sm" style="white-space:normal">${mapLink(ar)}</td>
+      <td class="l">${chanceWord(p)}</td>
+      <td class="l">${up ? `<a href="#${S.div}-game-${gid}" class="preview">Scouting report →</a>` : ''}</td></tr>`; }).join('')}
+  </tbody></table></div>`;
+}
+function yourWeekPanel() {
+  const today = S.index.today, end = new Date(new Date(today + 'T12:00:00').getTime() + 7 * 864e5).toISOString().slice(0, 10);
+  const items = [];
+  for (const x of follows()) for (const f of x.t.fut || []) if (f[0] >= today && f[0] <= end) items.push({ x, f });
+  if (!items.length) return '';
+  items.sort((a, b) => (a.f[5] || a.f[0]) < (b.f[5] || b.f[0]) ? -1 : 1);
+  return `<section class="panel wide">
+    <div class="phead"><h2>Your week</h2><span class="note">Every game for the teams you follow, next seven days</span></div>
+    ${items.map(({ x, f: [d, o, home, ar, p, st, gid] }) => { const XD = x.D, ot = XD.teams[o], up = XD.upcoming.some(g => g.g === gid);
+      return `<div class="wkrow">
+        <div class="when"><b>${esc(dateLabel(d))}</b> <span class="note">${esc(timeLabel(st))}</span></div>
+        <div class="who"><a href="#${x.div}-team-${x.t.id}"><b>${esc(shortName(x.t))}</b></a> ${home ? 'vs' : '@'} ${ot ? esc(shortName(ot)) : 'TBD'}<small>${mapLink(ar)}</small></div>
+        <span class="edge">${chanceWord(p)}</span>
+        ${up ? `<a href="#${x.div}-game-${gid}" class="preview">Scouting report →</a>` : '<span></span>'}
+      </div>`; }).join('')}
+  </section>`;
+}
 function myTeamPanel(D) {
-  const all = stars();
-  const here = all.filter(k => k.startsWith(S.div + ':')).map(k => D.teams[k.split(':')[1]]).filter(Boolean);
-  here.sort((a, b) => (inLevel(b.c) - inLevel(a.c)));
-  const tl = t => `<a href="#${S.div}-team-${t.id}">${esc(shortName(t))}</a>`;
-  const picker = `<div class="controls" style="margin:12px 0 0"><label for="hpick" class="eyebrow">${here.length ? 'Add another' : 'Pick your team'}</label>
-    <select id="hpick"><option value="">${esc(D.div)} ${levelName()} teams…</option>${Object.values(D.teams).filter(t => inLevel(t.c) && t.rg !== 'visitor' && !here.includes(t)).sort((a, b) => a.n.localeCompare(b.n)).map(t => `<option value="${t.id}">${esc(t.n)}</option>`).join('')}</select></div>`;
-  if (!here.length) {
-    const elsewhere = all.filter(k => !k.startsWith(S.div + ':'));
+  // Followed teams from every age group and program, so your team stays put when you switch.
+  const all = follows();
+  const pickTeams = Object.values(D.teams).filter(t => inLevel(t.c) && t.rg !== 'visitor' && !all.some(x => x.key === `${S.div}:${t.id}`)).sort((a, b) => a.n.localeCompare(b.n));
+  const picker = `<div class="controls" style="margin:12px 0 0"><label for="hpick" class="eyebrow">${all.length ? 'Add another' : 'Pick your team'}</label>
+    <select id="hpick"><option value="">${esc(D.div)} ${levelName()} teams…</option>${pickTeams.map(t => `<option value="${t.id}">${esc(t.n)}</option>`).join('')}</select></div>`;
+  if (!all.length) {
     return `<section class="panel w6 myteam">
       <div class="phead"><h2>My team</h2></div>
-      <p style="margin:0 0 10px">Follow your team and this box becomes its snapshot: where it ranks, how it's playing, and how its next game looks with a link to the scouting report.</p>
-      <ul class="plain note"><li>☆ Tap the star beside any team in the rankings, or pick it below.</li><li>Saved on this device only. No account, nothing to sign up for.</li>${elsewhere.length ? `<li>You follow ${elsewhere.length} team${elsewhere.length > 1 ? 's' : ''} in other age groups. Switch age group at the top to see ${elsewhere.length > 1 ? 'them' : 'it'}.</li>` : ''}</ul>
+      <p style="margin:0 0 10px">Follow your team and this box becomes its snapshot: where it ranks, how it's playing, and how its next game looks with a link to the scouting report. It stays here whichever age group you're looking at.</p>
+      <ul class="plain note"><li>☆ Tap the star beside any team in the rankings, or pick it below.</li><li>Saved on this device only. No account, nothing to sign up for.</li></ul>
       ${picker}
     </section>`;
   }
-  const t = here.find(x => x.id === S.homeStar) || here[0];
-  const r = t.rg === 'visitor' ? null : rankedList(D, t.c, 'all').find(x => x.t.id === t.id);
-  const next = D.upcoming.find(g => g.h === t.id || g.a === t.id);
+  const saved = S.homeStar || store('rr-home');
+  const x = all.find(y => y.key === saved) || all.find(y => y.div === S.div && inLevel(y.t.c)) || all.find(y => y.div === S.div) || all[0];
+  const { div, t } = x, XD = x.D;
+  const tl = o => `<a href="#${div}-team-${o.id}">${esc(shortName(o))}</a>`;
+  const ranked = t.rg === 'visitor' ? null : rankedList(XD, t.c, 'all');
+  const r = ranked ? ranked.find(y => y.t.id === t.id) : null;
+  const next = XD.upcoming.find(g => g.h === t.id || g.a === t.id);
   const last = t.log[t.log.length - 1];
-  const stat = (k, v, tip) => `<div><div class="k"${tip ? ` tabindex="0" data-tip="${tip}"` : ''}>${k}</div><div class="v num">${v}</div></div>`;
+  const stat = (k, v, tip, adv) => `<div${adv ? ' class="adv"' : ''}><div class="k"${tip ? ` tabindex="0" data-tip="${tip}"` : ''}>${k}</div><div class="v num">${v}</div></div>`;
   let nx = '<p class="note" style="margin:0">No game on the schedule yet.</p>';
   if (next) {
-    const home = next.h === t.id, o = D.teams[home ? next.a : next.h], h = D.teams[next.h], a = D.teams[next.a];
-    nx = `<div class="phead" style="margin-bottom:6px"><span><b>${home ? 'vs' : '@'} ${tl(o)}</b> <span class="note">${esc(dateLabel(next.d))} ${esc(timeLabel(next.st))}</span></span><a href="#${S.div}-game-${next.g}">Scouting report →</a></div>
-      ${strengthBar(next.ph, next.pt, next.pa, h, a, { homeAway: true })}`;
+    const home = next.h === t.id, o = XD.teams[home ? next.a : next.h];
+    nx = `<div class="phead" style="margin-bottom:6px"><span><b>${home ? 'vs' : '@'} ${tl(o)}</b> <span class="note">${esc(dateLabel(next.d))} ${esc(timeLabel(next.st))}${next.ar ? ' · ' + esc(next.ar) : ''}</span></span><a href="#${div}-game-${next.g}">Scouting report →</a></div>
+      ${strengthBar(next.ph, next.pt, next.pa, XD.teams[next.h], XD.teams[next.a], { homeAway: true })}`;
   }
+  const chipName = y => `${y.div !== S.div || !inLevel(y.t.c) ? y.div.toUpperCase() + ' ' : ''}${shortName(y.t)}`;
   return `<section class="panel w6 myteam">
-    <div class="phead"><h2>My team</h2><a href="#${S.div}-team-${t.id}">Team page →</a></div>
-    ${here.length > 1 ? `<div class="chips" role="group" aria-label="My teams" style="margin-bottom:8px">${here.map(x => `<button type="button" class="chip" data-hstar="${x.id}" aria-pressed="${x === t}">${esc(shortName(x))}</button>`).join('')}</div>` : ''}
-    <h3 class="snapname">${starBtn(S.div, t.id)}<a href="#${S.div}-team-${t.id}">${esc(t.n)}</a></h3>
-    <p class="note" style="margin:0 0 10px">${r ? `#${r.rank} of ${rankedList(D, t.c, 'all').length} in ${esc(t.c)} ${moveCell(r.move)}` : `Visiting team in ${esc(t.c)}`}${t.gp < 6 ? ' <span class="prov" tabindex="0" data-tip="early">EARLY</span>' : ''}</p>
+    <div class="phead"><h2>My team</h2><a href="#${div}-team-${t.id}">Team page →</a></div>
+    ${all.length > 1 ? `<div class="chips" role="group" aria-label="My teams" style="margin-bottom:8px">${all.map(y => `<button type="button" class="chip" data-hstar="${esc(y.key)}" aria-pressed="${y === x}">${esc(chipName(y))}</button>`).join('')}</div>` : ''}
+    <h3 class="snapname">${starBtn(div, t.id)}<a href="#${div}-team-${t.id}">${esc(t.n)}</a></h3>
+    <p class="note" style="margin:0 0 10px">${r ? `#${r.rank} of ${ranked.length} in ${esc(t.c)} ${moveCell(r.move)}` : `Visiting team in ${esc(t.c)}`}${t.gp < 6 ? ' <span class="prov" tabindex="0" data-tip="early">EARLY</span>' : ''}</p>
     <div class="snap">
-      ${stat('Power', sgn(power(D, t)), 'power')}${stat('Record', `${t.w}-${t.l}-${t.t}`, 'record')}${stat('Rec vs play', sgn(t.ptsPct - t.xPtsPct, 0), 'luck')}
-      ${stat('GF*', fmt(t.off), 'gf')}${stat('GA*', fmt(t.def), 'ga')}${stat('PP / PK', `${pct(t.st.pp)} / ${pct(t.st.pk)}`, null)}
+      ${stat('Power', sgn(power(XD, t)), 'power')}${stat('Record', `${t.w}-${t.l}-${t.t}`, 'record')}${stat('Rec vs play', sgn(t.ptsPct - t.xPtsPct, 0), 'luck', 1)}
+      ${stat('GF*', fmt(t.off), 'gf', 1)}${stat('GA*', fmt(t.def), 'ga', 1)}${stat('PP / PK', `${pct(t.st.pp)} / ${pct(t.st.pk)}`, null, 1)}
     </div>
-    <p style="margin:12px 0"><span class="eyebrow" tabindex="0" data-tip="form">Last 5</span> ${formCell(t.form)}${last ? ` <span class="note">Last: <b class="${last.r === 'W' ? 'up' : last.r === 'L' ? 'down' : ''}">${last.r}</b> ${last.gf}-${last.ga} ${last.h ? 'vs' : '@'} ${esc(D.teams[last.o] ? shortName(D.teams[last.o]) : '')}</span>` : ''}</p>
+    <p class="summary" style="margin:12px 0 0">${teamSummary(XD, t, div)}</p>
+    <p style="margin:12px 0"><span class="eyebrow" tabindex="0" data-tip="form">Last 5</span> ${formCell(t.form)}${last ? ` <span class="note">Last: <b class="${last.r === 'W' ? 'up' : last.r === 'L' ? 'down' : ''}">${last.r}</b> ${last.gf}-${last.ga} ${last.h ? 'vs' : '@'} ${esc(XD.teams[last.o] ? shortName(XD.teams[last.o]) : '')}</span>` : ''}</p>
     <h2 style="margin:0 0 8px;font-size:17px">Next game</h2>
     ${nx}
     ${t.hist.length >= 2 ? `<h2 style="margin:16px 0 4px;font-size:17px">${tipSpan('hist', 'Power by week')}</h2>${histChart(t)}` : ''}
@@ -585,6 +716,7 @@ function viewHome(D) {
   <h1>${esc(D.div)} ${S.gender === 'female' ? 'Female ' : ''}${S.level === 'house' ? 'House' : 'Rep'} at a glance</h1>
   <p class="lede">The top of the rankings, your team, the games coming up and the week's best matchup. Every team and game links through to its full scouting report.</p>
   <div class="dash">
+    ${yourWeekPanel()}
     <section class="panel w6">
       <div class="phead"><h2>Power rankings</h2><a href="#${S.div}-rankings">Full rankings →</a></div>
       ${cats.length > 1 ? `<div class="chips" role="group" aria-label="Category" style="margin-bottom:8px">${cats.map(c => `<button type="button" class="chip" data-hcat="${esc(c.c)}" aria-pressed="${c.c === cat}">${esc(c.c)}</button>`).join('')}</div>` : ''}
@@ -675,8 +807,8 @@ function viewRankings(D) {
   </div>
   <div class="tframe"><table>
     <thead><tr><th class="l">${tipSpan('rank', '#')}</th><th class="l">${tipSpan('move', '±')}</th><th class="l">Team</th>${th('rec', 'Record')}${th('power', 'Power')}
-      ${th('off', 'GF*', 'hide-sm')}${th('def', 'GA*', 'hide-sm')}${th('sos', 'Sched', 'hide-sm')}${th('luck', 'Rec vs play', 'hide-sm')}
-      <th class="l">${tipSpan('form', 'Last 5')}</th>${th('pp', 'PP', 'hide-sm')}${th('pk', 'PK', 'hide-sm')}</tr></thead>
+      ${th('off', 'GF*', 'hide-sm adv')}${th('def', 'GA*', 'hide-sm adv')}${th('sos', 'Sched', 'hide-sm adv')}${th('luck', 'Rec vs play', 'hide-sm adv')}
+      <th class="l">${tipSpan('form', 'Last 5')}</th>${th('pp', 'PP', 'hide-sm adv')}${th('pk', 'PK', 'hide-sm adv')}</tr></thead>
     <tbody>${rows.map(({ t, rank, move }) => {
       const luck = t.ptsPct - t.xPtsPct;
       return `<tr>
@@ -684,11 +816,11 @@ function viewRankings(D) {
         <td class="l team">${starBtn(S.div, t.id)}<a href="#${S.div}-team-${t.id}">${esc(t.n)}</a>${t.gp < 6 ? '<span class="prov" tabindex="0" data-tip="early">EARLY</span>' : ''}<small>${esc(t.lg || t.a)}${t.grp ? ' · ' + esc(t.grp) : ''}</small></td>
         <td class="num">${t.w}-${t.l}-${t.t}</td>
         <td>${powerCell(t.net - mean)}</td>
-        <td class="num hide-sm">${fmt(t.off)}</td><td class="num hide-sm">${fmt(t.def)}</td>
-        <td class="num hide-sm">${sgn(t.sos == null ? null : t.sos - mean)}</td>
-        <td class="num hide-sm ${luck >= 10 ? 'up' : luck <= -10 ? 'down' : ''}">${sgn(luck, 0)}</td>
+        <td class="num hide-sm adv">${fmt(t.off)}</td><td class="num hide-sm adv">${fmt(t.def)}</td>
+        <td class="num hide-sm adv">${sgn(t.sos == null ? null : t.sos - mean)}</td>
+        <td class="num hide-sm adv ${luck >= 10 ? 'up' : luck <= -10 ? 'down' : ''}">${sgn(luck, 0)}</td>
         <td class="l">${formCell(t.form)}</td>
-        <td class="num hide-sm">${pct(t.st.pp)}</td><td class="num hide-sm">${pct(t.st.pk)}</td></tr>`;
+        <td class="num hide-sm adv">${pct(t.st.pp)}</td><td class="num hide-sm adv">${pct(t.st.pk)}</td></tr>`;
     }).join('') || `<tr><td colspan="12" class="l">No teams match “${esc(S.q)}”.</td></tr>`}</tbody>
   </table></div>
   <p class="note">${rows.length} of ${all} teams. GF* and GA* are goals for and against per game you'd expect against an average ${esc(D.div)} opponent. Sched is the average strength of opponents faced, against the ${esc(cat)} average. Rec vs play is points percentage minus the points percentage the team's play would usually earn. PP and PK are estimated from game sheets. <a href="#method">How it works</a>.</p>`;
@@ -752,13 +884,14 @@ function viewTeam(D, t) {
   <p class="eyebrow"><a href="#${S.div}-rankings" data-cat-link="${esc(t.c)}">${esc(t.c)} rankings</a></p>
   <h1>${esc(t.n)} ${starBtn(S.div, t.id, true)} ${shareBtn(`${S.div}-team-${t.id}`, t.n)}</h1>
   <p class="lede">${t.rg === 'visitor' ? `A visiting team, seen only in tournaments. It's rated through those games but isn't included in the ${esc(t.c)} rankings.` : `${esc(t.lg || '')}${t.grp ? ' · ' + esc(t.grp) : ''}. Ranked <b>${meR.rank} of ${pcahaList.length}</b> ${rgName} teams in ${esc(t.c)}${me.rank !== meR.rank ? ` (${me.rank} of ${list.length} counting PCAHA and Island teams)` : ''}.`}</p>
+  <p class="summary">${teamSummary(D, t)}</p>
   <div class="tiles">
     <div class="tile"><div class="k" tabindex="0" data-tip="power">Power</div><div class="v num">${sgn(pw)}</div><div class="s">goals a game vs an average ${esc(t.c)} team</div></div>
     <div class="tile"><div class="k" tabindex="0" data-tip="record">Record</div><div class="v num">${t.w}-${t.l}-${t.t}</div><div class="s">${t.gf} for, ${t.ga} against</div></div>
-    <div class="tile"><div class="k" tabindex="0" data-tip="offence">Offence</div><div class="v num">${fmt(t.off)}</div><div class="s">expected goals for a game</div></div>
-    <div class="tile"><div class="k" tabindex="0" data-tip="defence">Defence</div><div class="v num">${fmt(t.def)}</div><div class="s">expected goals against a game</div></div>
-    <div class="tile"><div class="k" tabindex="0" data-tip="sched">Schedule so far</div><div class="v num">${sgn(t.sos == null ? null : t.sos - mean)}</div><div class="s">${t.pct && t.pct.sos != null ? `tougher than ${t.pct.sos}% of the category` : ''}</div></div>
-    <div class="tile"><div class="k" tabindex="0" data-tip="luck">Record vs play</div><div class="v num">${sgn(t.ptsPct - t.xPtsPct, 0)}</div><div class="s">${t.ptsPct}% of points vs ${t.xPtsPct}% expected</div></div>
+    <div class="tile adv"><div class="k" tabindex="0" data-tip="offence">Offence</div><div class="v num">${fmt(t.off)}</div><div class="s">expected goals for a game</div></div>
+    <div class="tile adv"><div class="k" tabindex="0" data-tip="defence">Defence</div><div class="v num">${fmt(t.def)}</div><div class="s">expected goals against a game</div></div>
+    <div class="tile adv"><div class="k" tabindex="0" data-tip="sched">Schedule so far</div><div class="v num">${sgn(t.sos == null ? null : t.sos - mean)}</div><div class="s">${t.pct && t.pct.sos != null ? `tougher than ${t.pct.sos}% of the category` : ''}</div></div>
+    <div class="tile adv"><div class="k" tabindex="0" data-tip="luck">Record vs play</div><div class="v num">${sgn(t.ptsPct - t.xPtsPct, 0)}</div><div class="s">${t.ptsPct}% of points vs ${t.xPtsPct}% expected</div></div>
   </div>
   <section class="panel" style="margin-bottom:18px"><h2 style="margin-top:0">${tipSpan('hist', 'Power by week')}</h2>${histChart(t)}</section>
   <div class="grid2">
@@ -772,26 +905,27 @@ function viewTeam(D, t) {
       </tbody></table></div>
     </section>
   </div>
-  <h2>Splits</h2>
-  <div class="tframe"><table><tbody>
+  <h2 class="adv">Splits</h2>
+  <div class="tframe adv"><table><tbody>
     <tr><td class="l">Home</td><td class="num">${rec(t.home)}</td><td class="l">Away</td><td class="num">${rec(t.away)}</td></tr>
     <tr><td class="l">${tipSpan('splits', 'One-goal games')}</td><td class="num">${rec(t.one)}</td><td class="l">Won / lost by 5+</td><td class="num">${t.blow[0]} / ${t.blow[1]}</td></tr>
     <tr><td class="l">Different goal scorers</td><td class="num">${t.depth.scorers}</td><td class="l">${tipSpan('depth', 'Goals from top three')}</td><td class="num">${pct(t.depth.top3)}</td></tr>
   </tbody></table></div>
-  ${up.length ? `<h2>Next games</h2><div class="games">${up.slice(0, 6).map(g => gameCard(D, g, t.id)).join('')}</div>` : ''}
+  ${leagueOutlook(D, t)}
+  ${aheadSection(D, t)}
   <h2>Matchup check</h2>
   <div class="panel"><div class="controls" style="margin:0 0 10px"><label for="vs" class="eyebrow">Against</label>
     <select id="vs"><option value="">Pick any ${esc(D.div)} ${genderOf(t.c) === 'female' ? 'female ' : ''}${levelOf(t.c) === 'house' ? 'house' : 'rep'} team…</option>${Object.values(D.teams).filter(x => x.id !== t.id && levelOf(x.c) === levelOf(t.c) && genderOf(x.c) === genderOf(t.c)).sort((a, b) => a.n.localeCompare(b.n)).map(x => `<option value="${x.id}">${esc(x.n)}</option>`).join('')}</select></div>
     <div id="vsout" class="note">Pick an opponent to see the chances on neutral ice.</div></div>
   <h2>Game by game</h2>
   <div class="tframe"><table>
-    <thead><tr><th class="l">Date</th><th class="l">Opponent</th><th>Score</th><th class="l">${tipSpan('winchance', 'Going in')}</th><th>${tipSpan('vsexp', 'Vs expected')}</th><th class="l hide-sm">Event</th></tr></thead>
+    <thead><tr><th class="l">Date</th><th class="l">Opponent</th><th>Score</th><th class="l">${tipSpan('winchance', 'Going in')}</th><th class="adv">${tipSpan('vsexp', 'Vs expected')}</th><th class="l hide-sm">Event</th></tr></thead>
     <tbody>${t.log.slice().reverse().map(g => { const o = opp(g.o);
       return `<tr><td class="l num">${esc(g.d.slice(5))}</td>
         <td class="l team">${g.h ? '' : '@ '}${o ? `<a href="#${S.div}-team-${o.id}">${esc(o.n)}</a>` : 'Unknown'}</td>
         <td class="num"><b class="${g.r === 'W' ? 'up' : g.r === 'L' ? 'down' : ''}">${g.r}</b> ${g.gf}-${g.ga}${g.x ? ' ' + esc(g.x) : ''}</td>
         <td class="l${g.q == null ? ' note' : ''}">${sideWord(g.q ?? g.p)}</td>
-        <td class="num ${g.pf >= 1.5 ? 'up' : g.pf <= -1.5 ? 'down' : ''}">${sgn(g.pf)}</td>
+        <td class="num adv ${g.pf >= 1.5 ? 'up' : g.pf <= -1.5 ? 'down' : ''}">${sgn(g.pf)}</td>
         <td class="l hide-sm note">${esc((D.schedules[g.s] || {}).n || '')}</td></tr>`; }).join('')}</tbody>
   </table></div>
   <p class="note">Win chance is what the model said before each game. "Vs expected" uses today's ratings, so it shows how each result compares with what we now know about both teams.</p>`;
@@ -853,9 +987,9 @@ function viewLeagues(D) {
     <h2>${esc(p.name)}</h2>
     <p class="note">${p.played} games played, ${p.remaining} to go${p.start ? `, ${esc(p.start)} to ${esc(p.end)}` : ''}. Points: ${p.ps.w} for a win, ${p.ps.t} for a tie, ${p.ps.l} for a loss${p.ps.fit === 'exact' ? '' : p.ps.fit === 'assumed' ? ' (assumed until results come in)' : ' (approximate; this league awards some points by period)'}.</p>
     ${p.groups.map(g => `${g.name ? `<h3>${esc(g.name)}</h3>` : ''}
-    <div class="tframe" style="margin-bottom:14px"><table><thead><tr><th class="l">Team</th><th>${tipSpan('pts', 'Pts')}</th><th>${tipSpan('gp', 'GP')}</th><th class="hide-sm">${tipSpan('left', 'Left')}</th><th>${tipSpan('projected', 'Projected')}</th><th>${tourn ? tipSpan('poolwin', 'Pool win') : tipSpan('p1', '1st')}</th><th>${tipSpan('top', 'Top half')}</th><th class="hide-sm">${tipSpan('avgfin', 'Avg finish')}</th><th class="l">${tipSpan('status', 'Status')}</th></tr></thead>
+    <div class="tframe" style="margin-bottom:14px"><table><thead><tr><th class="l">Team</th><th>${tipSpan('pts', 'Pts')}</th><th>${tipSpan('gp', 'GP')}</th><th class="hide-sm">${tipSpan('left', 'Left')}</th><th>${tipSpan('projected', 'Projected')}</th><th>${tourn ? tipSpan('poolwin', 'Pool win') : tipSpan('p1', '1st')}</th><th>${tipSpan('top', 'Top half')}</th><th class="hide-sm adv">${tipSpan('avgfin', 'Avg finish')}</th>${tourn ? '' : `<th class="l">${tipSpan('need', 'For top half')}</th>`}<th class="l">${tipSpan('status', 'Status')}</th></tr></thead>
     <tbody>${g.rows.map(r => { const t = D.teams[r.id];
-      return `<tr><td class="l team">${t ? `<a href="#${S.div}-team-${t.id}">${esc(t.n)}</a>` : r.id}</td><td class="num">${r.pts}</td><td class="num">${r.gp}</td><td class="num hide-sm">${r.left}</td><td class="num"><b>${fmt(r.xPts)}</b></td><td class="num">${pct(r.p1)}</td><td class="num">${pct(r.top)}</td><td class="num hide-sm">${fmt(r.avg)}</td><td class="l status">${r.status ? `<span class="${/Clinched|clinched/.test(r.status) ? 'up' : /Out of/.test(r.status) ? 'down' : ''}">${esc(r.status)}</span>` : ''}</td></tr>`; }).join('')}</tbody></table></div>`).join('')}
+      return `<tr><td class="l team">${t ? `<a href="#${S.div}-team-${t.id}">${esc(t.n)}</a>` : r.id}</td><td class="num">${r.pts}</td><td class="num">${r.gp}</td><td class="num hide-sm">${r.left}</td><td class="num"><b>${fmt(r.xPts)}</b></td><td class="num">${pct(r.p1)}</td><td class="num">${pct(r.top)}</td><td class="num hide-sm adv">${fmt(r.avg)}</td>${tourn ? '' : `<td class="l">${needCell(r)}</td>`}<td class="l status">${r.status ? `<span class="${/Clinched|clinched/.test(r.status) ? 'up' : /Out of/.test(r.status) ? 'down' : ''}">${esc(r.status)}</span>` : ''}</td></tr>`; }).join('')}</tbody></table></div>`).join('')}
   `).join('') : '<p class="note">Nothing with games left in this age group yet. Rep leagues appear here once PCAHA publishes the season schedule.</p>'}`;
 }
 
@@ -1140,6 +1274,7 @@ function matchKeys(D, A, B, m) {
   if (close) for (const X of [A, B]) { const o = X.one, n = o[0] + o[1] + o[2]; if (n >= 3 && (o[0] / n >= 0.7 || o[1] / n >= 0.7)) keys.push(`In one-goal games ${nm(X)} are ${rec(o)}. ${o[0] > o[1] ? 'They know how to close out tight games.' : 'Tight games have slipped away from them.'}`); }
   return keys;
 }
+const ADV_ROWS = new Set(['Power play', 'Penalty kill', 'Penalties a game', 'Third periods', 'Schedule so far', 'Record vs play']);
 function compareRows(D, A, B) {
   const pw = t => power(D, t);
   const rows = [
@@ -1157,7 +1292,7 @@ function compareRows(D, A, B) {
   return rows.map(([label, a, b, f, hiGood, tip]) => {
     let wa = '', wb = '';
     if (hiGood != null && a != null && b != null && a !== b) { const aBetter = hiGood ? a > b : a < b; wa = aBetter ? 'win' : ''; wb = aBetter ? '' : 'win'; }
-    return `<tr><td class="num ${wa}">${f(a, A)}</td><td class="mid">${tip ? tipSpan(tip, label) : label}</td><td class="num ${wb}">${f(b, B)}</td></tr>`;
+    return `<tr class="${ADV_ROWS.has(label) ? 'adv' : ''}"><td class="num ${wa}">${f(a, A)}</td><td class="mid">${tip ? tipSpan(tip, label) : label}</td><td class="num ${wb}">${f(b, B)}</td></tr>`;
   }).join('') + `<tr><td class="num">${formCell(A.form)}</td><td class="mid">${tipSpan('form', 'Last 5')}</td><td class="num">${formCell(B.form)}</td></tr>`;
 }
 function viewMatch(D, A, B, g) {
@@ -1320,7 +1455,7 @@ function bind(D) {
     if (a) { S.cat[S.div] = a.dataset.catLink; return; }
     if (!b) return;
     if (b.dataset.hcat) { S.cat[S.div] = b.dataset.hcat; app.innerHTML = viewHome(D); bind(D); }
-    else if (b.dataset.hstar) { S.homeStar = +b.dataset.hstar; app.innerHTML = viewHome(D); bind(D); }
+    else if (b.dataset.hstar) { S.homeStar = b.dataset.hstar; store('rr-home', S.homeStar); app.innerHTML = viewHome(D); bind(D); }
     else if (b.dataset.cat) { S.cat[S.div] = b.dataset.cat; S.q = ''; app.innerHTML = viewRankings(D); bind(D); }
     else if (b.dataset.region) { S.region = b.dataset.region; app.innerHTML = viewRankings(D); bind(D); }
     else if (b.dataset.sort) { S.sort = b.dataset.sort; app.innerHTML = viewRankings(D); bind(D); }
@@ -1332,7 +1467,7 @@ function bind(D) {
   const q = $('#q');
   if (q) q.oninput = () => { S.q = q.value; const pos = q.selectionStart; app.innerHTML = viewRankings(D); bind(D); const nq = $('#q'); nq.focus(); nq.setSelectionRange(pos, pos); };
   const hp = $('#hpick');
-  if (hp) hp.onchange = () => { if (!hp.value) return; toggleStar(`${S.div}:${hp.value}`); S.homeStar = +hp.value; const y = window.scrollY; app.innerHTML = viewHome(D); bind(D); window.scrollTo(0, y); };
+  if (hp) hp.onchange = () => { if (!hp.value) return; toggleStar(`${S.div}:${hp.value}`); S.homeStar = `${S.div}:${hp.value}`; store('rr-home', S.homeStar); const y = window.scrollY; app.innerHTML = viewHome(D); bind(D); window.scrollTo(0, y); };
   const vs = $('#vs');
   if (vs) vs.onchange = () => {
     const t = D.teams[S.team], o = D.teams[vs.value];
@@ -1348,6 +1483,11 @@ document.addEventListener('click', e => {
   S.q = ''; store('rr-div', b.dataset.div); go(`${b.dataset.div}-${v}`);
 });
 window.addEventListener('hashchange', render);
+document.addEventListener('click', e => {
+  const mb = e.target.closest('#modes button'); if (!mb) return;
+  S.simple = mb.dataset.mode === 'simple'; store('rr-mode', mb.dataset.mode);
+  document.body.classList.toggle('simple', S.simple); chrome();
+});
 document.addEventListener('click', e => {
   const gb = e.target.closest('#genders button');
   if (gb && gb.dataset.gender !== S.gender) {
@@ -1404,6 +1544,9 @@ document.addEventListener('keydown', e => { if (e.key === 'Escape') hideTip(); }
   catch (e) { $('#app').innerHTML = '<p class="loading">The ratings didn\'t load. Refresh the page to try again.</p>'; return; }
   S.level = store('rr-level') === 'house' ? 'house' : 'rep';
   S.gender = store('rr-gender') === 'female' ? 'female' : 'mixed';
+  // Simple view hides the analyst columns. Phones start in it unless the visitor chose otherwise.
+  const mode = store('rr-mode'); S.simple = mode ? mode === 'simple' : window.innerWidth < 640;
+  document.body.classList.toggle('simple', S.simple);
   const saved = store('rr-div'); if (saved && S.index.divisions.some(d => d.id === saved)) S.div = saved;
   else if (!S.index.divisions.some(d => d.id === 'u13')) S.div = S.index.divisions[0].id;
   render();
