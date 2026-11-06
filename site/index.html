@@ -194,9 +194,8 @@ table.compare td.win { font-weight: 700; color: var(--blue); }
 footer { border-top: 1px solid var(--line); color: var(--muted); font-size: 14px; padding-block: 18px 30px; }
 .loading { color: var(--muted); padding: 40px 0; }
 /* dashboard: a 12-column grid of panels that stacks on phones */
-.dash { display: grid; grid-template-columns: repeat(12, minmax(0, 1fr)); gap: 16px; }
-.dash > .panel { min-width: 0; }
-.dash .w4 { grid-column: span 4; } .dash .w5 { grid-column: span 5; } .dash .w6 { grid-column: span 6; } .dash .w7 { grid-column: span 7; } .dash .w8 { grid-column: span 8; } .dash .w12 { grid-column: span 12; }
+.dash { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; align-items: stretch; }
+.dash > .panel { min-width: 0; grid-column: auto; }
 .dash h2 { margin: 0 0 10px; font-size: 21px; }
 .phead { display: flex; justify-content: space-between; align-items: baseline; gap: 10px; flex-wrap: wrap; }
 .phead a { font-weight: 600; font-size: 14px; white-space: nowrap; }
@@ -213,10 +212,17 @@ footer { border-top: 1px solid var(--line); color: var(--muted); font-size: 14px
 .grow .edge { font: 600 13px/1.2 var(--body); text-align: right; white-space: nowrap; }
 .grow .sbar { grid-column: 1 / -1; }
 .grow .sbar .sbar-track { height: 6px; }
-@media (max-width: 900px) { .dash .w4, .dash .w5, .dash .w7 { grid-column: span 6; } .dash .w8 { grid-column: span 12; } }
+.snapname { font: 800 22px/1.15 var(--display); text-transform: uppercase; margin: 2px 0 4px; }
+.snapname a { color: var(--ink); }
+.snap { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; }
+.snap > div { background: var(--ice); border-radius: 8px; padding: 8px 10px; }
+.snap .k { font: 600 11px/1.2 var(--mono); text-transform: uppercase; letter-spacing: .8px; color: var(--muted); }
+.snap .v { font: 800 22px/1.15 var(--display); }
+.myteam { border-top: 4px solid var(--tie); }
+@media (max-width: 900px) { .dash { grid-template-columns: minmax(0, 1fr); } }
 @media (max-width: 640px) {
-  .dash > .panel { grid-column: 1 / -1 !important; }
   .grow { grid-template-columns: 1fr; }
+  .snap .v { font-size: 19px; }
   .grow .edge { text-align: left; white-space: normal; }
   .hide-sm { display: none; }
   th, td { padding: 8px 7px; }
@@ -487,6 +493,48 @@ function gameRow(D, g) {
     ${strengthBar(g.ph, g.pt, g.pa, h, a, { noNames: true, small: true }).replace('sbar small', 'sbar')}
   </div>`;
 }
+function myTeamPanel(D) {
+  const all = stars();
+  const here = all.filter(k => k.startsWith(S.div + ':')).map(k => D.teams[k.split(':')[1]]).filter(Boolean);
+  here.sort((a, b) => (inLevel(b.c) - inLevel(a.c)));
+  const tl = t => `<a href="#${S.div}-team-${t.id}">${esc(shortName(t))}</a>`;
+  const picker = `<div class="controls" style="margin:12px 0 0"><label for="hpick" class="eyebrow">${here.length ? 'Add another' : 'Pick your team'}</label>
+    <select id="hpick"><option value="">${esc(D.div)} ${levelName()} teams…</option>${Object.values(D.teams).filter(t => inLevel(t.c) && t.rg !== 'visitor' && !here.includes(t)).sort((a, b) => a.n.localeCompare(b.n)).map(t => `<option value="${t.id}">${esc(t.n)}</option>`).join('')}</select></div>`;
+  if (!here.length) {
+    const elsewhere = all.filter(k => !k.startsWith(S.div + ':'));
+    return `<section class="panel w6 myteam">
+      <div class="phead"><h2>My team</h2></div>
+      <p style="margin:0 0 10px">Follow your team and this box becomes its snapshot: where it ranks, how it's playing, and how its next game looks with a link to the scouting report.</p>
+      <ul class="plain note"><li>☆ Tap the star beside any team in the rankings, or pick it below.</li><li>Saved on this device only. No account, nothing to sign up for.</li>${elsewhere.length ? `<li>You follow ${elsewhere.length} team${elsewhere.length > 1 ? 's' : ''} in other age groups. Switch age group at the top to see ${elsewhere.length > 1 ? 'them' : 'it'}.</li>` : ''}</ul>
+      ${picker}
+    </section>`;
+  }
+  const t = here.find(x => x.id === S.homeStar) || here[0];
+  const r = t.rg === 'visitor' ? null : rankedList(D, t.c, 'all').find(x => x.t.id === t.id);
+  const next = D.upcoming.find(g => g.h === t.id || g.a === t.id);
+  const last = t.log[t.log.length - 1];
+  const stat = (k, v, tip) => `<div><div class="k"${tip ? ` tabindex="0" data-tip="${tip}"` : ''}>${k}</div><div class="v num">${v}</div></div>`;
+  let nx = '<p class="note" style="margin:0">No game on the schedule yet.</p>';
+  if (next) {
+    const home = next.h === t.id, o = D.teams[home ? next.a : next.h], h = D.teams[next.h], a = D.teams[next.a];
+    nx = `<div class="phead" style="margin-bottom:6px"><span><b>${home ? 'vs' : '@'} ${tl(o)}</b> <span class="note">${esc(dateLabel(next.d))} ${esc(timeLabel(next.st))}</span></span><a href="#${S.div}-game-${next.g}">Scouting report →</a></div>
+      ${strengthBar(next.ph, next.pt, next.pa, h, a, { homeAway: true })}`;
+  }
+  return `<section class="panel w6 myteam">
+    <div class="phead"><h2>My team</h2><a href="#${S.div}-team-${t.id}">Team page →</a></div>
+    ${here.length > 1 ? `<div class="chips" role="group" aria-label="My teams" style="margin-bottom:8px">${here.map(x => `<button type="button" class="chip" data-hstar="${x.id}" aria-pressed="${x === t}">${esc(shortName(x))}</button>`).join('')}</div>` : ''}
+    <h3 class="snapname">${starBtn(S.div, t.id)}<a href="#${S.div}-team-${t.id}">${esc(t.n)}</a></h3>
+    <p class="note" style="margin:0 0 10px">${r ? `#${r.rank} of ${rankedList(D, t.c, 'all').length} in ${esc(t.c)} ${moveCell(r.move)}` : `Visiting team in ${esc(t.c)}`}${t.gp < 6 ? ' <span class="prov" tabindex="0" data-tip="early">EARLY</span>' : ''}</p>
+    <div class="snap">
+      ${stat('Power', sgn(power(D, t)), 'power')}${stat('Record', `${t.w}-${t.l}-${t.t}`, 'record')}${stat('Rec vs play', sgn(t.ptsPct - t.xPtsPct, 0), 'luck')}
+      ${stat('GF*', fmt(t.off), 'gf')}${stat('GA*', fmt(t.def), 'ga')}${stat('PP / PK', `${pct(t.st.pp)} / ${pct(t.st.pk)}`, null)}
+    </div>
+    <p style="margin:12px 0"><span class="eyebrow" tabindex="0" data-tip="form">Last 5</span> ${formCell(t.form)}${last ? ` <span class="note">Last: <b class="${last.r === 'W' ? 'up' : last.r === 'L' ? 'down' : ''}">${last.r}</b> ${last.gf}-${last.ga} ${last.h ? 'vs' : '@'} ${esc(D.teams[last.o] ? shortName(D.teams[last.o]) : '')}</span>` : ''}</p>
+    <h2 style="margin:0 0 8px;font-size:17px">Next game</h2>
+    ${nx}
+    ${t.hist.length >= 2 ? `<h2 style="margin:16px 0 4px;font-size:17px">${tipSpan('hist', 'Power by week')}</h2>${histChart(t)}` : ''}
+  </section>`;
+}
 function viewHome(D) {
   const cats = levelCats(D);
   if (!cats.length) return `<p class="eyebrow">${esc(D.div)} ${levelName()}</p><h1>No teams here</h1><p class="lede">There are no ${esc(D.div)} ${levelName()} teams in this season's data. Try the other switches at the top.</p>`;
@@ -497,42 +545,46 @@ function viewHome(D) {
   const mine = g => inLevel(D.teams[g.h].c) || inLevel(D.teams[g.a].c);
   const upcoming = D.upcoming.filter(g => mine(g) && g.d <= week);
   const feat = pickFeatured(D, upcoming);
-  // rankings snapshot
   const rows = rankedList(D, cat, 'all').slice(0, 10), mean = catMean(D, cat);
   // games: watch games first, then by time, skipping the featured one
   const list = upcoming.filter(g => !feat || g.g !== feat.g)
     .sort((x, y) => (isWatch(D, y) - isWatch(D, x)) || ((x.st || x.d) < (y.st || y.d) ? -1 : 1)).slice(0, 7);
-  // movers over the last week
   const teams = Object.values(D.teams).filter(t => t.rg !== 'visitor' && inLevel(t.c));
   const risers = teams.filter(t => t.hist.length >= 2 && t.gp >= 4).map(t => {
     const cur = t.hist[t.hist.length - 1]; let prev = null;
     for (let i = t.hist.length - 2; i >= 0; i--) if (t.hist[i][0] <= lastWk) { prev = t.hist[i]; break; }
     return prev ? { t, from: prev[2], to: cur[2], d: prev[2] - cur[2] } : null;
-  }).filter(m => m && m.d > 0).sort((a, b) => b.d - a.d).slice(0, 5);
-  const ups = D.upsets.filter(u => u.d >= lastWk && (inLevel(D.teams[u.h].c) || inLevel(D.teams[u.a].c))).slice(0, 5);
-  // league race: the first league in this level with games left, top five by chance of first
+  }).filter(m => m && m.d > 0).sort((a, b) => b.d - a.d);
+  const ups = D.upsets.filter(u => u.d >= lastWk && (inLevel(D.teams[u.h].c) || inLevel(D.teams[u.a].c)));
   const lg = D.projections.find(p => p.kind === 'League' && p.cat === cat) || D.projections.find(p => p.kind === 'League' && inLevel(p.cat));
-  const race = lg ? lg.groups.flatMap(g => g.rows.map(r => ({ ...r, grp: g.name }))).sort((a, b) => b.p1 - a.p1).slice(0, 5) : [];
+  const race = lg ? lg.groups.flatMap(g => g.rows.map(r => ({ ...r, grp: g.name }))).sort((a, b) => b.p1 - a.p1).slice(0, 8) : [];
   const tl = t => `<a href="#${S.div}-team-${t.id}">${esc(shortName(t))}</a>`;
-  return `
-  <p class="eyebrow">${esc(D.div)} ${levelName()} · ${esc(dateLabel(today))}</p>
-  <h1>${esc(D.div)} ${S.gender === 'female' ? 'Female ' : ''}${S.level === 'house' ? 'House' : 'Rep'} at a glance</h1>
-  <p class="lede">The week's best matchup, the top of the rankings and the games coming up. Every team and game links through to its full scouting report.</p>
-  ${mineSection(false)}
-  <div class="dash">
-    ${feat ? (() => { const h = D.teams[feat.h], a = D.teams[feat.a], keys = matchKeys(D, h, a, feat).slice(0, 3);
-      const pw = t => power(D, t), cmp = [['Power', sgn(pw(h)), sgn(pw(a)), pw(h) - pw(a)], ['Record', `${h.w}-${h.l}-${h.t}`, `${a.w}-${a.l}-${a.t}`, h.ptsPct - a.ptsPct],
-        ['Goals for*', fmt(h.off), fmt(a.off), h.off - a.off], ['Goals against*', fmt(h.def), fmt(a.def), a.def - h.def], ['Last 5', formCell(h.form), formCell(a.form), 0]];
-      return `<section class="panel feature w6">
-      <div class="phead"><span class="eyebrow">Featured game · ${esc(dateLabel(feat.d))} ${esc(timeLabel(feat.st))}</span><a href="#${S.div}-game-${feat.g}">Full scouting report →</a></div>
+  const riseList = n => `<ul class="plain">${risers.slice(0, n).map(m => `<li><span class="mv up">▲${m.d}</span> ${tl(m.t)} <span class="note">${esc(m.t.c)}: #${m.from} → #${m.to}</span></li>`).join('') || '<li class="note">No big moves this week.</li>'}</ul>`;
+  const upList = n => `<ul class="plain">${ups.slice(0, n).map(u => { const hw = u.hs > u.as, w = D.teams[hw ? u.h : u.a], l = D.teams[hw ? u.a : u.h];
+    return `<li>${tl(w)} beat ${tl(l)} <a href="#${S.div}-game-${u.g}">${Math.max(u.hs, u.as)}-${Math.min(u.hs, u.as)}</a> <span class="note">${esc(dateLabel(u.d))} · ${sideWord(u.p).toLowerCase()} going in</span></li>`; }).join('') || '<li class="note">No big upsets in the last seven days.</li>'}</ul>`;
+  let watchPanel;
+  if (feat) {
+    const h = D.teams[feat.h], a = D.teams[feat.a], keys = matchKeys(D, h, a, feat).slice(0, 3);
+    const pw = t => power(D, t), cmp = [['Power', sgn(pw(h)), sgn(pw(a)), pw(h) - pw(a)], ['Record', `${h.w}-${h.l}-${h.t}`, `${a.w}-${a.l}-${a.t}`, h.ptsPct - a.ptsPct],
+      ['Goals for*', fmt(h.off), fmt(a.off), h.off - a.off], ['Goals against*', fmt(h.def), fmt(a.def), a.def - h.def], ['Last 5', formCell(h.form), formCell(a.form), 0]];
+    watchPanel = `<section class="panel feature w6">
+      <div class="phead"><h2>Game to watch</h2><a href="#${S.div}-game-${feat.g}">Scouting report →</a></div>
+      <p class="eyebrow" style="margin:0">${esc(dateLabel(feat.d))} ${esc(timeLabel(feat.st))}${feat.ar ? ' · ' + esc(feat.ar) : ''}</p>
       <h3><a href="#${S.div}-game-${feat.g}">${esc(shortName(h))} vs ${esc(shortName(a))}</a></h3>
       ${strengthBar(feat.ph, feat.pt, feat.pa, h, a, { homeAway: true })}
       <table class="compare" style="width:100%;margin-top:12px"><thead><tr><th>${esc(shortName(h))}</th><th class="mid"></th><th>${esc(shortName(a))}</th></tr></thead>
         <tbody>${cmp.map(([k, x, y, d]) => `<tr><td class="num ${d > 0 ? 'win' : ''}">${x}</td><td class="mid">${k}</td><td class="num ${d < 0 ? 'win' : ''}">${y}</td></tr>`).join('')}</tbody></table>
       <h2 style="margin:16px 0 8px;font-size:17px">Keys to the game</h2>
       <ul class="report">${keys.map(k => `<li data-tag="i">${k}</li>`).join('')}</ul>
-      <p class="note" style="margin:10px 0 0">${esc(feat.ar || '')}${feat.s && D.schedules[feat.s] ? (feat.ar ? ' · ' : '') + esc(D.schedules[feat.s].n) : ''}</p>
-    </section>`; })() : ''}
+    </section>`;
+  } else {
+    watchPanel = `<section class="panel feature w6"><div class="phead"><h2>Game to watch</h2></div><p class="note">No games between ranked teams in the next seven days for this selection.</p></section>`;
+  }
+  return `
+  <p class="eyebrow">${esc(D.div)} ${levelName()} · ${esc(dateLabel(today))}</p>
+  <h1>${esc(D.div)} ${S.gender === 'female' ? 'Female ' : ''}${S.level === 'house' ? 'House' : 'Rep'} at a glance</h1>
+  <p class="lede">The top of the rankings, your team, the games coming up and the week's best matchup. Every team and game links through to its full scouting report.</p>
+  <div class="dash">
     <section class="panel w6">
       <div class="phead"><h2>Power rankings</h2><a href="#${S.div}-rankings">Full rankings →</a></div>
       ${cats.length > 1 ? `<div class="chips" role="group" aria-label="Category" style="margin-bottom:8px">${cats.map(c => `<button type="button" class="chip" data-hcat="${esc(c.c)}" aria-pressed="${c.c === cat}">${esc(c.c)}</button>`).join('')}</div>` : ''}
@@ -541,25 +593,27 @@ function viewHome(D) {
         <td class="l team">${starBtn(S.div, t.id)}<a href="#${S.div}-team-${t.id}">${esc(shortName(t))}</a>${t.gp < 6 ? '<span class="prov" tabindex="0" data-tip="early">EARLY</span>' : ''}</td>
         <td class="num hide-sm">${t.w}-${t.l}-${t.t}</td><td>${powerCell(t.net - mean)}</td></tr>`).join('')}</tbody></table>
     </section>
-    <section class="panel ${feat ? 'w7' : 'w6'}">
+    ${myTeamPanel(D)}
+    <section class="panel w6">
       <div class="phead"><h2>Coming up</h2><a href="#${S.div}-games">All games →</a></div>
       ${list.length ? list.map(g => gameRow(D, g)).join('') : '<p class="note">No games in the next seven days for this selection.</p>'}
     </section>
-    <section class="panel w5">
-      <div class="phead"><h2>${lg ? 'League race' : 'Climbing'}</h2><a href="#${S.div}-${lg ? 'leagues' : 'week'}">${lg ? 'Projections' : 'This week'} →</a></div>
-      ${lg ? `<p class="note" style="margin:0 0 6px">${esc(lg.name)}: chance of finishing first${lg.groups.length > 1 ? ' in their group' : ''}.</p>
-        <table class="minirank"><tbody>${race.map(r => { const t = D.teams[r.id]; return `<tr><td class="l team">${t ? tl(t) : r.id}${r.grp ? `<small>${esc(r.grp)}</small>` : ''}</td><td class="num">${r.pts} pts</td><td class="num"><b>${pct(r.p1)}</b></td></tr>`; }).join('')}</tbody></table>`
-      : `<ul class="plain">${risers.map(m => `<li><span class="mv up">▲${m.d}</span> ${tl(m.t)} <span class="note">#${m.from} → #${m.to}</span></li>`).join('') || '<li class="note">No big moves this week.</li>'}</ul>`}
-    </section>
+    ${watchPanel}
     ${lg ? `<section class="panel w6">
-      <div class="phead"><h2>Climbing</h2><a href="#${S.div}-week">This week →</a></div>
-      <ul class="plain">${risers.map(m => `<li><span class="mv up">▲${m.d}</span> ${tl(m.t)} <span class="note">${esc(m.t.c)}: #${m.from} → #${m.to}</span></li>`).join('') || '<li class="note">No big moves this week.</li>'}</ul>
-    </section>` : ''}
-    <section class="panel ${lg ? 'w6' : 'w12'}">
-      <div class="phead"><h2>Upsets this week</h2><a href="#${S.div}-games">More →</a></div>
-      <ul class="plain">${ups.map(u => { const hw = u.hs > u.as, w = D.teams[hw ? u.h : u.a], l = D.teams[hw ? u.a : u.h];
-        return `<li>${tl(w)} beat ${tl(l)} <a href="#${S.div}-game-${u.g}">${Math.max(u.hs, u.as)}-${Math.min(u.hs, u.as)}</a> <span class="note">${esc(dateLabel(u.d))} · ${sideWord(u.p).toLowerCase()} going in</span></li>`; }).join('') || '<li class="note">No big upsets in the last seven days.</li>'}</ul>
+      <div class="phead"><h2>League race</h2><a href="#${S.div}-leagues">Projections →</a></div>
+      <p class="note" style="margin:0 0 6px">${esc(lg.name)}: chance of finishing first${lg.groups.length > 1 ? ' in their group' : ''}.</p>
+      <table class="minirank"><tbody>${race.map(r => { const t = D.teams[r.id]; return `<tr><td class="l team">${t ? tl(t) : r.id}${r.grp ? `<small>${esc(r.grp)}</small>` : ''}</td><td class="num">${r.pts} pts</td><td class="num"><b>${pct(r.p1)}</b></td></tr>`; }).join('')}</tbody></table>
     </section>
+    <section class="panel w6">
+      <div class="phead"><h2>This week</h2><a href="#${S.div}-week">Weekly recap →</a></div>
+      <h3>Climbing</h3>${riseList(4)}
+      <h3 style="margin-top:14px">Upsets</h3>${upList(3)}
+    </section>` : `<section class="panel w6">
+      <div class="phead"><h2>Climbing</h2><a href="#${S.div}-week">This week →</a></div>${riseList(6)}
+    </section>
+    <section class="panel w6">
+      <div class="phead"><h2>Upsets this week</h2><a href="#${S.div}-games">More →</a></div>${upList(6)}
+    </section>`}
   </div>`;
 }
 
@@ -1265,7 +1319,8 @@ function bind(D) {
     const b = e.target.closest('button'); const a = e.target.closest('[data-cat-link]');
     if (a) { S.cat[S.div] = a.dataset.catLink; return; }
     if (!b) return;
-    if (b.dataset.hcat) { S.cat[S.div] = b.dataset.hcat; app.innerHTML = viewHome(D); bind(D); fillMine(); }
+    if (b.dataset.hcat) { S.cat[S.div] = b.dataset.hcat; app.innerHTML = viewHome(D); bind(D); }
+    else if (b.dataset.hstar) { S.homeStar = +b.dataset.hstar; app.innerHTML = viewHome(D); bind(D); }
     else if (b.dataset.cat) { S.cat[S.div] = b.dataset.cat; S.q = ''; app.innerHTML = viewRankings(D); bind(D); }
     else if (b.dataset.region) { S.region = b.dataset.region; app.innerHTML = viewRankings(D); bind(D); }
     else if (b.dataset.sort) { S.sort = b.dataset.sort; app.innerHTML = viewRankings(D); bind(D); }
@@ -1276,6 +1331,8 @@ function bind(D) {
   };
   const q = $('#q');
   if (q) q.oninput = () => { S.q = q.value; const pos = q.selectionStart; app.innerHTML = viewRankings(D); bind(D); const nq = $('#q'); nq.focus(); nq.setSelectionRange(pos, pos); };
+  const hp = $('#hpick');
+  if (hp) hp.onchange = () => { if (!hp.value) return; toggleStar(`${S.div}:${hp.value}`); S.homeStar = +hp.value; const y = window.scrollY; app.innerHTML = viewHome(D); bind(D); window.scrollTo(0, y); };
   const vs = $('#vs');
   if (vs) vs.onchange = () => {
     const t = D.teams[S.team], o = D.teams[vs.value];
@@ -1309,6 +1366,7 @@ document.addEventListener('click', e => {
   const [div, id] = b.dataset.star.split(':');
   document.querySelectorAll(`button[data-star="${b.dataset.star}"]`).forEach(x => { x.outerHTML = starBtn(div, +id, x.classList.contains('big')); });
   if ($('#mine')) fillMine();
+  if (S.view === 'home' && S.data[S.div]) { const y = window.scrollY; $('#app').innerHTML = viewHome(S.data[S.div]); bind(S.data[S.div]); window.scrollTo(0, y); }
 }, true);
 function bindClubs() {
   const app = $('#app');
