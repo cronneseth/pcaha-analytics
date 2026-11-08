@@ -871,38 +871,6 @@ function viewRankings(D) {
 }
 
 /* ---------- team ---------- */
-function scouting(D, t) {
-  const out = [];
-  const peers = Object.values(D.teams).filter(x => x.c === t.c);
-  const avg = f => peers.reduce((s, x) => s + f(x), 0) / peers.length;
-  const p = t.pct || {};
-  const name = t.c;
-  if (p.off >= 80) out.push(['+', `Scores a lot. Expect about ${fmt(t.off)} goals a game against an average opponent, top ${100 - p.off}% in ${name}.`]);
-  else if (p.off <= 25) out.push(['−', `Struggles to score: about ${fmt(t.off)} goals a game against an average opponent, bottom ${Math.max(p.off, 1)}% in ${name}.`]);
-  if (p.def >= 80) out.push(['+', `Hard to score on. Allows about ${fmt(t.def)} a game against an average opponent, top ${100 - p.def}% in ${name}.`]);
-  else if (p.def <= 25) out.push(['−', `Gives up chances: about ${fmt(t.def)} goals against a game, bottom ${Math.max(p.def, 1)}% in ${name}.`]);
-  if (t.st.pp != null && p.pp >= 75) out.push(['+', `Dangerous power play, scoring on about ${t.st.pp}% of chances (${t.st.ppgf} power-play goals).`]);
-  if (t.st.pp != null && p.pp <= 25) out.push(['−', `Power play has been quiet: ${t.st.ppgf} goals on about ${t.st.ppo} chances.`]);
-  if (t.st.pk != null && p.pk >= 75) out.push(['+', `Strong penalty kill, about ${t.st.pk}% of penalties killed.`]);
-  if (t.st.pk != null && p.pk <= 25) out.push(['−', `Penalty kill is a weak spot: ${t.st.ppga} power-play goals allowed on about ${t.st.tsh} penalties.`]);
-  const ppg = t.st.pen / Math.max(t.sheets, 1), ppgAvg = avg(x => x.st.pen / Math.max(x.sheets, 1));
-  if (ppg >= ppgAvg * 1.35) out.push(['−', `Takes a lot of penalties: ${fmt(ppg)} a game against a ${name} average of ${fmt(ppgAvg)}.`]);
-  else if (ppg <= ppgAvg * 0.65) out.push(['+', `Disciplined: ${fmt(ppg)} penalties a game against a ${name} average of ${fmt(ppgAvg)}.`]);
-  const d3 = t.per['3'][0] - t.per['3'][1], d1 = t.per['1'][0] - t.per['1'][1];
-  if (t.sheets >= 5 && d3 - d1 >= 5) out.push(['+', `Finishes strong: ${sgn(d3, 0)} in third periods against ${sgn(d1, 0)} in firsts.`]);
-  if (t.sheets >= 5 && d1 - d3 >= 5) out.push(['−', `Fades late: ${sgn(d1, 0)} in first periods but ${sgn(d3, 0)} in thirds.`]);
-  const luck = t.ptsPct - t.xPtsPct;
-  if (luck >= 12) out.push(['i', `The record is ahead of the play (${sgn(luck, 0)} points percentage). Close results have been going their way, which tends not to last.`]);
-  if (luck <= -12) out.push(['i', `Better than the record suggests (${sgn(luck, 0)}). The goal differential points to more wins coming.`]);
-  if (t.depth.top3 != null && t.depth.top3 >= 65) out.push(['i', `Leans on a few shooters: the top three scorers have ${t.depth.top3}% of the goals. Shut them down and the offence dries up.`]);
-  if (t.depth.top3 != null && t.depth.top3 <= 42 && t.depth.scorers >= 9) out.push(['+', `Scoring comes from everywhere: ${t.depth.scorers} different players have scored, and no top three carries the load.`]);
-  if (t.formPerf != null && t.formPerf >= 1.2) out.push(['+', `Playing above its rating lately, ${sgn(t.formPerf)} goals a game better than expected over the last five.`]);
-  if (t.formPerf != null && t.formPerf <= -1.2) out.push(['−', `Cooling off: ${sgn(t.formPerf)} goals a game below expectation over the last five.`]);
-  if (t.sos != null && p.sos >= 85) out.push(['i', `Has faced one of the toughest schedules in ${name}, so the record undersells them.`]);
-  if (t.sos != null && p.sos <= 15) out.push(['i', `Has had one of the easier schedules in ${name}. Treat the record with some caution.`]);
-  if (!out.length) out.push(['i', 'No standout strengths or weaknesses yet. A balanced team, or too few games to tell.']);
-  return out;
-}
 function periodChart(t) {
   const per = ['1', '2', '3']; const mx = Math.max(1, ...per.flatMap(p => t.per[p]));
   const W = 300, rowH = 34, H = per.length * rowH + 18, mid = 150, sc = (mid - 30) / mx;
@@ -922,7 +890,6 @@ function viewTeam(D, t) {
   const mean = catMean(D, t.c); const pw = t.net - mean;
   const up = D.upcoming.filter(g => g.h === t.id || g.a === t.id);
   const opp = id => D.teams[id];
-  const report = scouting(D, t);
   const rgName = { pcaha: 'PCAHA', island: 'Island' }[t.rg];
   return `
   <p class="eyebrow"><a href="#${S.div}-rankings" data-cat-link="${esc(t.c)}">${esc(t.c)} rankings</a></p>
@@ -939,7 +906,7 @@ function viewTeam(D, t) {
   </div>
   <section class="panel" style="margin-bottom:18px"><h2 style="margin-top:0">${tipSpan('hist', 'Power by week')}</h2>${histChart(t)}</section>
   <div class="grid2">
-    <section class="panel"><h2 style="margin-top:0">Scouting report</h2><ul class="report">${report.map(([tag, txt]) => `<li data-tag="${tag}">${esc(txt)}</li>`).join('')}</ul></section>
+    <section class="panel"><h2 style="margin-top:0">Upcoming games</h2>${up.length ? `<div class="games">${up.slice(0, 4).map(g => gameCard(D, g, t.id)).join('')}</div>${up.length > 4 ? `<p class="note" style="margin:10px 0 0">${up.length - 4} more in the next two weeks. Every scheduled game is listed under What's ahead below.</p>` : ''}` : '<p class="note">No games on the schedule in the next two weeks.</p>'}</section>
     <section class="panel"><h2 style="margin-top:0">Goals by period</h2>${t.sheets ? periodChart(t) : '<p class="note">No game sheets yet.</p>'}
       <h3 style="margin-top:14px">Special teams <span class="note">(estimated)</span></h3>
       <div class="tframe"><table><tbody>
