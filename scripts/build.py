@@ -565,6 +565,42 @@ def build_division(div, data_dir, sheets, sched_meta, today, pred_log):
     upsets.sort(key=lambda u: u['p'])
 
     # ---- league projections -----------------------------------------------
+    def tournament_pools(teams, sched):
+        """Tournament pools aren't labelled in the public data, but teams only play
+        round-robin games inside their own pool, so the pools are the groups of teams
+        linked by games. Returns {'Pool A': [...], ...}, or None when the schedule is
+        one connected group (a single round robin or a crossover format). Teams with
+        no round-robin games yet (playoff placeholders) are left out."""
+        ids = {t['teamId'] for t in teams}
+        adj, first = defaultdict(set), {}
+        for g in sched:
+            h, a = g['homeTeamId'], g['awayTeamId']
+            if h in ids and a in ids:
+                adj[h].add(a); adj[a].add(h)
+                when = g.get('startTime') or g.get('date') or ''
+                for x in (h, a):
+                    first[x] = min(first.get(x, when), when)
+        seen, comps = set(), []
+        for t in ids:
+            if t in seen or t not in adj:
+                continue
+            comp, stack = set(), [t]
+            while stack:
+                x = stack.pop()
+                if x not in comp:
+                    comp.add(x); stack.extend(adj[x] - comp)
+            seen |= comp
+            comps.append(comp)
+        comps = [c for c in comps if len(c) >= 3]
+        if len(comps) < 2:
+            return None
+        comps.sort(key=lambda c: (min(first[x] for x in c), min(c)))
+        out = defaultdict(list)
+        for i, c in enumerate(comps):
+            name = 'Pool ' + (chr(65 + i) if i < 26 else str(i + 1))
+            out[name] = [t for t in teams if t['teamId'] in c]
+        return out
+
     rng = np.random.default_rng(20261104)
     projections = []
     # Leagues that have just started often have games but no published standings
@@ -621,6 +657,8 @@ def build_division(div, data_dir, sheets, sched_meta, today, pred_log):
         groups = defaultdict(list)
         for t in s['teams']:
             groups[t.get('groupName') or ''].append(t)
+        if kind == 'Tournament' and len(groups) == 1:
+            groups = tournament_pools(s['teams'], sched_games.values()) or groups
         tids = [t['teamId'] for t in s['teams']]
         pos = {tid: i for i, tid in enumerate(tids)}
         base_pts = np.array([t['points'] for t in s['teams']], float)
