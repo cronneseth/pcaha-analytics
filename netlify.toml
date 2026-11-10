@@ -1,6 +1,6 @@
 [build]
   # requirements.txt (Pillow) is installed by Netlify automatically.
-  command = "python3 scripts/package_site.py site public && python3 scripts/share.py public"
+  command = "python3 scripts/package_site.py site public && python3 scripts/share.py public && python3 scripts/seo.py public"
   publish = "public"
 
 [build.environment]

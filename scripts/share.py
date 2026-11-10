@@ -451,7 +451,7 @@ def share_page(path, url, title, desc, image, target):
     img = f'{url}{image}' if url else image
     page = f"""<!doctype html><html lang="en"><head><meta charset="utf-8">
 <title>{e(title)}</title><meta name="description" content="{e(desc)}">
-<meta property="og:type" content="website"><meta property="og:site_name" content="{e(BRAND)}">
+<meta name="robots" content="noindex"><meta property="og:type" content="website"><meta property="og:site_name" content="{e(BRAND)}">
 <meta property="og:title" content="{e(title)}"><meta property="og:description" content="{e(desc)}">
 <meta property="og:image" content="{e(img)}"><meta property="og:image:width" content="{W}"><meta property="og:image:height" content="{H}">
 <meta name="twitter:card" content="summary_large_image">
