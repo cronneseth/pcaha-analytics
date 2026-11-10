@@ -704,7 +704,7 @@ function shareCard() {
     <p>Know another hockey parent? Share RinkRank with your team chat.</p>
     <div class="sharebtns">
       ${phone && navigator.share ? `<button type="button" class="native" data-shareapp="1">Share…</button>` : ''}
-      <a href="https://wa.me/?text=${full}" target="_blank" rel="noopener">WhatsApp</a>
+      <a href="https://api.whatsapp.com/send?text=${full}" target="_blank" rel="noopener">WhatsApp</a>
       ${phone && !navigator.share ? `<a href="sms:?&body=${full}">Text</a>` : ''}
       ${phone && navigator.share ? '' : `<a href="mailto:?subject=${enc('Hockey rankings and game previews')}&body=${full}">Email</a>`}
       ${phone ? '' : `<a href="https://www.facebook.com/sharer/sharer.php?u=${enc(url)}" target="_blank" rel="noopener">Facebook</a>`}
@@ -884,7 +884,7 @@ function bragBox(div, t) {
   const url = `${location.origin}/s/brag-${key}.html`;
   const msg = encodeURIComponent(`${b.n}: ${b.h}! ${url}`);
   return `<div class="brag"><div><span class="eyebrow">Something to cheer about</span><b>${esc(b.h)}</b><span class="sub">${esc(b.s)}</span></div>
-    ${CAN_SHARE ? `<div class="acts"><a class="wa" href="https://wa.me/?text=${msg}" target="_blank" rel="noopener">WhatsApp</a><button type="button" data-share="brag-${esc(key)}" data-title="${esc(b.n + ': ' + b.h)}">Share</button></div>` : ''}</div>`;
+    ${CAN_SHARE ? `<div class="acts"><a class="wa" href="https://api.whatsapp.com/send?text=${msg}" target="_blank" rel="noopener">WhatsApp</a><button type="button" data-share="brag-${esc(key)}" data-title="${esc(b.n + ': ' + b.h)}">Share</button></div>` : ''}</div>`;
 }
 function calMenu(div, t) {
   if (!CAN_SHARE || !(t.fut && t.fut.length)) return '';
@@ -1405,7 +1405,7 @@ function teamChatText(D, t, url) {
 function teamChatBtn(D, t) {
   if (!CAN_SHARE || t.rg === 'visitor') return '';
   const url = `${location.origin}/s/${S.div}-team-${t.id}.html?d=${S.index.today}`;
-  return `<a class="wabtn" href="https://wa.me/?text=${encodeURIComponent(teamChatText(D, t, url))}" target="_blank" rel="noopener">Send to team chat</a>`;
+  return `<a class="wabtn" href="https://api.whatsapp.com/send?text=${encodeURIComponent(teamChatText(D, t, url))}" target="_blank" rel="noopener">Send to team chat</a>`;
 }
 
 /* ---------- team page: next game up top, and the best game so far ---------- */
