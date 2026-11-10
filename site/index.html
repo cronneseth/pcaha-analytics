@@ -1,6 +1,14 @@
 <title>RinkRank</title>
 <meta name="claude:viewport-fit-sides" content="cover">
 <meta name="description" content="Power rankings, strength ratings, game odds and league projections for PCAHA minor hockey. An independent site.">
+<meta property="og:type" content="website"><meta property="og:site_name" content="RinkRank">
+<meta property="og:title" content="RinkRank: PCAHA minor hockey rankings and game previews">
+<meta property="og:description" content="Follow your team, free: where they rank in their flight, how every game looks going in, and what it takes to finish top half.">
+<meta property="og:url" content="https://rinkrank.net/"><meta property="og:image" content="https://rinkrank.net/og/home.png">
+<meta property="og:image:width" content="1200"><meta property="og:image:height" content="630"><meta name="twitter:card" content="summary_large_image">
+<link rel="icon" type="image/png" href="/favicon.png"><link rel="apple-touch-icon" href="/apple-touch-icon.png">
+<link rel="manifest" href="/manifest.webmanifest"><meta name="theme-color" content="#123a7a">
+<meta name="apple-mobile-web-app-capable" content="yes"><meta name="apple-mobile-web-app-title" content="RinkRank">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Big+Shoulders+Display:wght@600;800&family=Source+Sans+3:wght@400;600;700&family=IBM+Plex+Mono:wght@400;600&display=swap">
@@ -240,10 +248,64 @@ footer { border-top: 1px solid var(--line); color: var(--muted); font-size: 14px
 .summary { font-size: 17px; line-height: 1.55; max-width: 72ch; margin: 0 0 6px; }
 .panel .summary { font-size: 16px; }
 .outlook { border-left: 4px solid var(--blue); }
+/* first visit: who do you cheer for? */
+.welcome { position: relative; overflow: hidden; background: linear-gradient(135deg, #123a7a, #1d5bb8); color: #fff; border: 0; padding: 26px 24px 22px; }
+.welcome::before { content: ""; position: absolute; inset: 0 0 auto; height: 5px; background: linear-gradient(90deg, #c8203a 0 40%, #fff 40% 60%, #c8203a 60%); }
+.welcome-grid { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.1fr); grid-template-areas: "head picker" "perks picker"; gap: 4px 32px; align-items: start; }
+.welcome-grid .w-head { grid-area: head; } .welcome-grid .w-perks { grid-area: perks; } .welcome-grid .picker { grid-area: picker; }
+.sharecard.bottom { display: none; }
+.welcome .eyebrow { color: rgba(255, 255, 255, .75); }
+.welcome h2.welcome-h { font-size: clamp(30px, 4.4vw, 44px); margin: 6px 0 8px; color: #fff; }
+.welcome p { margin: 0 0 12px; color: rgba(255, 255, 255, .9); }
+.welcome .note { color: rgba(255, 255, 255, .7); }
+.perks { list-style: none; margin: 0 0 12px; padding: 0; display: grid; gap: 8px; }
+.perks li { display: grid; grid-template-columns: 26px 1fr; gap: 8px; align-items: start; color: rgba(255, 255, 255, .92); }
+.perks li::before { content: "\2713"; display: grid; place-items: center; width: 22px; height: 22px; border-radius: 50%; background: #c8203a; color: #fff; font: 700 13px/1 var(--body); margin-top: 1px; }
+.perks b { color: #fff; }
+.picker { background: rgba(255, 255, 255, .08); border: 1px solid rgba(255, 255, 255, .18); border-radius: 12px; padding: 14px; }
+.picker .lbl { font: 600 12px/1 var(--mono); text-transform: uppercase; letter-spacing: 1px; color: rgba(255, 255, 255, .75); margin: 0 0 8px; }
+.picker .chips { margin-bottom: 12px; }
+.picker .chip { background: transparent; color: #fff; border-color: rgba(255, 255, 255, .4); }
+.picker .chip[aria-pressed="true"] { background: #fff; color: #123a7a; border-color: #fff; }
+.picker input[type="search"] { width: 100%; font-size: 17px; padding: 12px 14px; border-radius: 10px; border: 0; color: #14202a; background: #fff; }
+.wres { display: grid; gap: 6px; margin-top: 10px; }
+.wres button.pick { display: grid; grid-template-columns: 1fr auto; gap: 2px 10px; align-items: center; width: 100%; text-align: left; background: #fff; color: #14202a; border: 0; border-radius: 10px; padding: 10px 12px; cursor: pointer; font: inherit; }
+.wres button.pick:hover { background: #e3ecf8; }
+.wres button.pick b { font-weight: 700; }
+.wres button.pick small { grid-column: 1; color: #5b6b78; font-size: 13px; }
+.wres button.pick span.go { grid-row: 1 / span 2; grid-column: 2; font: 600 13px/1 var(--body); color: #fff; background: #c8203a; border-radius: 999px; padding: 7px 11px; }
+.clubchips { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 10px; }
+.clubchips button { font: 600 13px/1 var(--body); padding: 7px 10px; border-radius: 999px; border: 1px dashed rgba(255, 255, 255, .5); background: transparent; color: #fff; cursor: pointer; }
+.clubchips button:hover { background: rgba(255, 255, 255, .12); }
+/* flight rankings on the home page */
+table.minirank tr.me td { background: color-mix(in srgb, var(--tie) 14%, transparent); }
+table.minirank tr.me td.team a { color: var(--ink); }
+.scope { display: flex; gap: 6px; margin: 0 0 8px; flex-wrap: wrap; }
+/* good news to share */
+.brag { display: flex; flex-wrap: wrap; gap: 10px 16px; align-items: center; justify-content: space-between; background: linear-gradient(135deg, #123a7a, #1d5bb8); color: #fff; border-radius: 10px; padding: 12px 16px; margin: 12px 0; }
+.brag .eyebrow { color: rgba(255, 255, 255, .75); display: block; margin-bottom: 4px; }
+.brag b { display: block; font: 800 24px/1.1 var(--display); text-transform: uppercase; color: #ffc850; }
+.brag span.sub { font-size: 14px; color: rgba(255, 255, 255, .85); }
+.brag .acts { display: flex; gap: 6px; flex-wrap: wrap; }
+.brag .acts a, .brag .acts button { font: 600 13px/1 var(--body); padding: 8px 12px; border-radius: 999px; border: 0; background: #fff; color: #123a7a; cursor: pointer; text-decoration: none; vertical-align: 0; }
+.brag .acts .wa { background: #c8203a; color: #fff; }
+/* add to calendar */
+details.calmenu { display: inline-block; position: relative; }
+details.calmenu summary { list-style: none; font: 600 14px/1 var(--body); padding: 8px 12px; border-radius: 999px; border: 1px solid var(--blue); color: var(--blue); background: var(--board); cursor: pointer; }
+details.calmenu summary::-webkit-details-marker { display: none; }
+details.calmenu[open] summary { background: var(--blue); color: #fff; }
+details.calmenu .menu { position: absolute; z-index: 6; right: 0; margin-top: 6px; background: var(--board); border: 1px solid var(--line); border-radius: 10px; box-shadow: 0 8px 24px rgb(0 0 0 / .15); padding: 6px; display: grid; min-width: 230px; }
+details.calmenu .menu a, details.calmenu .menu button { display: block; text-align: left; padding: 9px 10px; border-radius: 6px; font: 600 14px/1.2 var(--body); color: var(--ink); background: none; border: 0; cursor: pointer; }
+details.calmenu .menu a:hover, details.calmenu .menu button:hover { background: var(--blue-soft); text-decoration: none; }
+details.calmenu .menu small { display: block; font-weight: 400; color: var(--muted); font-size: 12px; }
+.a2hs { margin: 12px 0 0; padding: 10px 12px; border-radius: 8px; background: var(--ice); font-size: 14px; display: flex; gap: 10px; align-items: center; justify-content: space-between; flex-wrap: wrap; }
+.a2hs button { font: 600 13px/1 var(--body); padding: 7px 11px; border-radius: 999px; border: 1px solid var(--line); background: var(--board); color: var(--ink); cursor: pointer; }
+.a2hs button.primary { background: var(--blue); border-color: var(--blue); color: #fff; }
 body.simple .adv { display: none !important; }
 body.simple { font-size: 17px; }
 body.simple .note, body.simple .team small { font-size: 15px; }
-@media (max-width: 900px) { .dash { grid-template-columns: minmax(0, 1fr); } .homehead { grid-template-columns: minmax(0, 1fr); } }
+@media (max-width: 900px) { .dash { grid-template-columns: minmax(0, 1fr); } .homehead { grid-template-columns: minmax(0, 1fr); } .welcome-grid { grid-template-columns: minmax(0, 1fr); grid-template-areas: "head" "picker" "perks"; gap: 14px; } }
+@media (max-width: 640px) { .homehead .lede, .homehead .sharecard { display: none; } .sharecard.bottom { display: block; margin-top: 16px; } .homehead { margin-bottom: 12px; } }
 @media (max-width: 640px) {
   .grow { grid-template-columns: 1fr; }
   .snap .v { font-size: 19px; }
@@ -478,6 +540,7 @@ async function render() {
   }
   app.innerHTML = '<p class="loading">Loading ratings…</p>';
   let D;
+  if (!S.brags) S.brags = await getJSON('data/brags.json').catch(() => ({}));
   try { D = await loadDiv(S.div); } catch (e) { app.innerHTML = `<p class="loading">Couldn't load the ${esc(S.div.toUpperCase())} data. Refresh the page to try again.</p>`; return; }
   if (S.view === 'team' && D.teams[S.team]) {
     const tc = D.teams[S.team].c, lv = levelOf(tc), gd = genderOf(tc);
@@ -662,22 +725,15 @@ function yourWeekPanel() {
       </div>`; }).join('')}
   </section>`;
 }
+// The followed team the home page is about: the one picked last, else one in this age group and program.
+function homeTeam() {
+  const all = follows(); if (!all.length) return null;
+  const saved = S.homeStar || store('rr-home');
+  return all.find(y => y.key === saved) || all.find(y => y.div === S.div && inLevel(y.t.c)) || all.find(y => y.div === S.div) || all[0];
+}
 function myTeamPanel(D) {
   // Followed teams from every age group and program, so your team stays put when you switch.
-  const all = follows();
-  const pickTeams = Object.values(D.teams).filter(t => inLevel(t.c) && t.rg !== 'visitor' && !all.some(x => x.key === `${S.div}:${t.id}`)).sort((a, b) => a.n.localeCompare(b.n));
-  const picker = `<div class="controls" style="margin:12px 0 0"><label for="hpick" class="eyebrow">${all.length ? 'Add another' : 'Pick your team'}</label>
-    <select id="hpick"><option value="">${esc(D.div)} ${levelName()} teams…</option>${pickTeams.map(t => `<option value="${t.id}">${esc(t.n)}</option>`).join('')}</select></div>`;
-  if (!all.length) {
-    return `<section class="panel w6 myteam">
-      <div class="phead"><h2>My team</h2></div>
-      <p style="margin:0 0 10px">Follow your team and this box becomes its snapshot: where it ranks, how it's playing, and how its next game looks with a link to the scouting report. It stays here whichever age group you're looking at.</p>
-      <ul class="plain note"><li>☆ Tap the star beside any team in the rankings, or pick it below.</li><li>Saved on this device only. No account, nothing to sign up for.</li></ul>
-      ${picker}
-    </section>`;
-  }
-  const saved = S.homeStar || store('rr-home');
-  const x = all.find(y => y.key === saved) || all.find(y => y.div === S.div && inLevel(y.t.c)) || all.find(y => y.div === S.div) || all[0];
+  const all = follows(), x = homeTeam();
   const { div, t } = x, XD = x.D;
   const tl = o => `<a href="#${div}-team-${o.id}">${esc(shortName(o))}</a>`;
   const ranked = t.rg === 'visitor' ? null : rankedList(XD, t.c, 'all');
@@ -703,11 +759,128 @@ function myTeamPanel(D) {
     </div>
     <p class="summary" style="margin:12px 0 0">${teamSummary(XD, t, div)}</p>
     <p style="margin:12px 0"><span class="eyebrow" tabindex="0" data-tip="form">Last 5</span> ${formCell(t.form)}${last ? ` <span class="note">Last: <b class="${last.r === 'W' ? 'up' : last.r === 'L' ? 'down' : ''}">${last.r}</b> ${last.gf}-${last.ga} ${last.h ? 'vs' : '@'} ${esc(XD.teams[last.o] ? shortName(XD.teams[last.o]) : '')}</span>` : ''}</p>
-    <h2 style="margin:0 0 8px;font-size:17px">Next game</h2>
+    ${bragBox(div, t)}
+    <div class="phead" style="margin:0 0 8px"><h2 style="margin:0;font-size:17px">Next game</h2>${calMenu(div, t)}</div>
     ${nx}
     ${t.hist.length >= 2 ? `<h2 style="margin:16px 0 4px;font-size:17px">${tipSpan('hist', 'Power by week')}</h2>${histChart(t)}` : ''}
+    <p style="margin:14px 0 0"><button type="button" class="chip" data-addteam="1">+ Follow another team</button></p>
+    ${a2hsTip()}
   </section>`;
 }
+// ---------- first visit: pick your team ----------
+const clubShort = a => a.replace(/\b(Minor Hockey Association|MHA|AHA|IHA|FHA|HA|Hockey|Association)\b/g, '').replace(/\s+/g, ' ').trim() || a;
+function welcomePanel(D) {
+  const counts = {};
+  Object.values(D.teams).forEach(t => { if (t.rg === 'pcaha') counts[t.a] = (counts[t.a] || 0) + 1; });
+  const clubs = Object.entries(counts).sort((a, b) => b[1] - a[1]).slice(0, 10).map(([a]) => clubShort(a));
+  return `<section class="panel wide welcome" id="welcome">
+    <div class="welcome-grid">
+      <div class="w-head">
+        <p class="eyebrow">Start here</p>
+        <h2 class="welcome-h">Who do you cheer for?</h2>
+        <p>Pick your kid's team and RinkRank becomes their page, right here every time you open it.</p>
+      </div>
+      <div class="w-perks">
+        <ul class="perks">
+          <li><span><b>Where they stand</b> in their flight and age group, updated after every game</span></li>
+          <li><span><b>Every game previewed</b>: how it looks going in, with a scouting report</span></li>
+          <li><span><b>What it takes</b> to finish in the top half of their flight</span></li>
+          <li><span><b>Good news to share</b> with the team chat, and the schedule in your phone's calendar</span></li>
+        </ul>
+        <p class="note">Saved on this device only. No account, nothing to sign up for.</p>
+      </div>
+      <div class="picker">
+        <p class="lbl">1. Age group</p>
+        <div class="chips" role="group" aria-label="Age group">${S.index.divisions.map(d => `<button type="button" class="chip" data-pdiv="${d.id}" aria-pressed="${d.id === S.div}">${d.name}</button>`).join('')}</div>
+        <p class="lbl">2. Find the team</p>
+        <input type="search" id="wq" placeholder="Club or team, e.g. Thunderbird A2" autocomplete="off" value="${esc(S.wq || '')}" aria-label="Club or team name">
+        <div id="wres" class="wres">${welcomeResults(D)}</div>
+        ${S.wq ? '' : `<div class="clubchips" aria-label="Clubs">${clubs.map(c => `<button type="button" data-wclub="${esc(c)}">${esc(c)}</button>`).join('')}</div>`}
+      </div>
+    </div>
+  </section>`;
+}
+function welcomeResults(D) {
+  const q = (S.wq || '').trim().toLowerCase();
+  if (q.length < 2) return '';
+  const words = q.split(/[^a-z0-9]+/).filter(Boolean);
+  const hits = Object.values(D.teams).filter(t => t.rg !== 'visitor').filter(t => {
+    const w = `${t.n} ${t.a} ${shortName(t)} ${t.c}`.toLowerCase().split(/[^a-z0-9]+/).filter(Boolean);
+    return words.every(x => w.some(h => h.startsWith(x)));
+  }).sort((a, b) => (inLevel(b.c) - inLevel(a.c)) || a.c.localeCompare(b.c) || a.n.localeCompare(b.n)).slice(0, 8);
+  if (!hits.length) return `<p class="note" style="margin:4px 0 0">No ${esc(D.div)} teams match. Try just the club name, or another age group.</p>`;
+  return hits.map(t => `<button type="button" class="pick" data-pick="${S.div}:${t.id}"><b>${esc(t.n)}</b><span class="go">Follow</span><small>${esc(t.c)}${t.grp ? ' · ' + esc(t.grp) : ''} · ${t.w}-${t.l}-${t.t}</small></button>`).join('');
+}
+
+// ---------- the followed team's flight, ranked ----------
+function flightPanel(x) {
+  const { div, t } = x, XD = x.D, mean = catMean(XD, t.c);
+  const mates = t.lg ? Object.values(XD.teams).filter(m => m.lg === t.lg && (m.grp || '') === (t.grp || '') && m.rg !== 'visitor') : [];
+  const useFlight = mates.length >= 4 && S.rscope !== 'all';
+  const top = {};
+  XD.projections.forEach(p => { if (p.kind === 'League' && p.name === t.lg) p.groups.forEach(g => g.rows.forEach(r => { top[r.id] = r.top; })); });
+  let rows, title, sub;
+  if (useFlight) {
+    rows = mates.sort((a, b) => b.net - a.net).map((m, i) => ({ t: m, rank: i + 1 }));
+    title = t.grp ? `${t.grp} rankings` : `${t.lg} rankings`; sub = `${t.lg}: ${mates.length} teams, ranked by Power`;
+  } else {
+    const all = rankedList(XD, t.c, 'all');
+    rows = all.slice(0, 10); const me = all.find(r => r.t.id === t.id);
+    if (me && me.rank > 10) rows = [...all.slice(0, 9), me];
+    title = `${t.c} rankings`; sub = `All ${all.length} PCAHA and Island teams${me && me.rank > 10 ? `, with ${esc(shortName(t))} at #${me.rank}` : ''}`;
+  }
+  const hasTop = useFlight && rows.some(r => top[r.t.id] != null);
+  return `<section class="panel w6">
+    <div class="phead"><h2>${esc(title)}</h2><a href="#${div}-rankings" data-cat-link="${esc(t.c)}" data-cat-div="${div}">Full ${esc(t.c)} rankings →</a></div>
+    ${mates.length >= 4 ? `<div class="scope chips" role="group" aria-label="Rankings to show"><button type="button" class="chip" data-rscope="flight" aria-pressed="${useFlight}">${esc(t.grp || 'League')}</button><button type="button" class="chip" data-rscope="all" aria-pressed="${!useFlight}">All ${esc(t.c)}</button></div>` : ''}
+    <p class="note" style="margin:0 0 6px">${sub}</p>
+    <table class="minirank"><tbody>${rows.map(({ t: m, rank }) => `<tr class="${m.id === t.id ? 'me' : ''}">
+      <td class="l rank">${rank}</td>
+      <td class="l team">${starBtn(div, m.id)}<a href="#${div}-team-${m.id}">${esc(shortName(m))}</a>${m.gp < 6 ? '<span class="prov" tabindex="0" data-tip="early">EARLY</span>' : ''}</td>
+      <td class="num hide-sm">${m.w}-${m.l}-${m.t}</td><td>${powerCell(m.net - mean)}</td>
+      ${hasTop ? `<td class="num" title="Chance of a top-half finish">${top[m.id] != null ? pct(top[m.id]) : ''}</td>` : ''}</tr>`).join('')}</tbody></table>
+    ${hasTop ? `<p class="note" style="margin:6px 0 0">Last column: chance of a ${tipSpan('top', 'top-half finish')} in the flight.</p>` : ''}
+  </section>`;
+}
+
+// ---------- good news, and the schedule in your calendar ----------
+function bragBox(div, t) {
+  const key = `${div}-team-${t.id}`, b = (S.brags || {})[key];
+  if (!b) return '';
+  const url = `${location.origin}/s/brag-${key}.html`;
+  const msg = encodeURIComponent(`${b.n}: ${b.h}! ${url}`);
+  return `<div class="brag"><div><span class="eyebrow">Something to cheer about</span><b>${esc(b.h)}</b><span class="sub">${esc(b.s)}</span></div>
+    ${CAN_SHARE ? `<div class="acts"><a class="wa" href="https://wa.me/?text=${msg}" target="_blank" rel="noopener">WhatsApp</a><button type="button" data-share="brag-${esc(key)}" data-title="${esc(b.n + ': ' + b.h)}">Share</button></div>` : ''}</div>`;
+}
+function calMenu(div, t) {
+  if (!CAN_SHARE || !(t.fut && t.fut.length)) return '';
+  const path = `${location.host}/cal/${div}-${t.id}.ics`;
+  return `<details class="calmenu"><summary>\u{1F4C5} Add to my calendar</summary><div class="menu">
+    <a href="webcal://${path}">iPhone, iPad or Mac<small>Opens your Calendar app to subscribe</small></a>
+    <a href="https://calendar.google.com/calendar/render?cid=${encodeURIComponent('webcal://' + path)}" target="_blank" rel="noopener">Google Calendar<small>Android phones and the web</small></a>
+    <button type="button" data-calcopy="https://${path}">Copy calendar link<small>For Outlook or anything else</small></button>
+    <span class="note" style="padding:6px 10px 4px;font-size:12px">Games, rinks and how each one looks going in. Updates itself as the schedule changes.</span>
+  </div></details>`;
+}
+let installEvt = null;
+window.addEventListener('beforeinstallprompt', e => { e.preventDefault(); installEvt = e; });
+function a2hsTip() {
+  const standalone = matchMedia('(display-mode: standalone)').matches || navigator.standalone;
+  if (standalone || store('rr-a2hs') === 'no' || !CAN_SHARE) return '';
+  const ios = /iPhone|iPad|iPod/.test(navigator.userAgent);
+  if (installEvt) return `<div class="a2hs"><span>Keep RinkRank one tap away.</span><span><button type="button" class="primary" data-a2hs="go">Add to home screen</button> <button type="button" data-a2hs="no">No thanks</button></span></div>`;
+  if (ios) return `<div class="a2hs"><span>Keep RinkRank one tap away: tap <b>Share</b>, then <b>Add to Home Screen</b>.</span><button type="button" data-a2hs="no">Got it</button></div>`;
+  return '';
+}
+document.addEventListener('click', async e => {
+  const a = e.target.closest('[data-a2hs]'), c = e.target.closest('[data-calcopy]');
+  if (a) {
+    if (a.dataset.a2hs === 'go' && installEvt) { installEvt.prompt(); try { await installEvt.userChoice; } catch (err) { /* closed */ } installEvt = null; }
+    store('rr-a2hs', 'no'); const box = a.closest('.a2hs'); if (box) box.remove();
+  } else if (c) {
+    try { await navigator.clipboard.writeText(c.dataset.calcopy); toast('Calendar link copied. Add it as a subscribed calendar.'); } catch (err) { toast(c.dataset.calcopy); }
+  }
+});
 function viewHome(D) {
   const cats = levelCats(D);
   if (!cats.length) return `<p class="eyebrow">${esc(D.div)} ${levelName()}</p><h1>No teams here</h1><p class="lede">There are no ${esc(D.div)} ${levelName()} teams in this season's data. Try the other switches at the top.</p>`;
@@ -753,44 +926,49 @@ function viewHome(D) {
   } else {
     watchPanel = `<section class="panel feature w6"><div class="phead"><h2>Game to watch</h2></div><p class="note">No games between ranked teams in the next seven days for this selection.</p></section>`;
   }
-  return `
-  <div class="homehead"><div>
-  <p class="eyebrow">${esc(D.div)} ${levelName()} · ${esc(dateLabel(today))}</p>
-  <h1>${esc(D.div)} ${S.gender === 'female' ? 'Female ' : ''}${S.level === 'house' ? 'House' : 'Rep'} at a glance</h1>
-  <p class="lede">The top of the rankings, your team, the games coming up and the week's best matchup. Every team and game links through to its full scouting report.</p>
-  </div>${shareCard()}</div>
-  <div class="dash">
-    ${yourWeekPanel()}
-    <section class="panel w6">
+  const x = homeTeam();
+  const rankPanel = `<section class="panel w6">
       <div class="phead"><h2>Power rankings</h2><a href="#${S.div}-rankings">Full rankings →</a></div>
       ${cats.length > 1 ? `<div class="chips" role="group" aria-label="Category" style="margin-bottom:8px">${cats.map(c => `<button type="button" class="chip" data-hcat="${esc(c.c)}" aria-pressed="${c.c === cat}">${esc(c.c)}</button>`).join('')}</div>` : ''}
       <table class="minirank"><tbody>${rows.map(({ t, rank, move }) => `<tr>
         <td class="l rank">${rank}</td><td class="l">${moveCell(move)}</td>
         <td class="l team">${starBtn(S.div, t.id)}<a href="#${S.div}-team-${t.id}">${esc(shortName(t))}</a>${t.gp < 6 ? '<span class="prov" tabindex="0" data-tip="early">EARLY</span>' : ''}</td>
         <td class="num hide-sm">${t.w}-${t.l}-${t.t}</td><td>${powerCell(t.net - mean)}</td></tr>`).join('')}</tbody></table>
-    </section>
-    ${myTeamPanel(D)}
-    <section class="panel w6">
+    </section>`;
+  const comingPanel = `<section class="panel w6">
       <div class="phead"><h2>Coming up</h2><a href="#${S.div}-games">All games →</a></div>
       ${list.length ? list.map(g => gameRow(D, g)).join('') : '<p class="note">No games in the next seven days for this selection.</p>'}
-    </section>
-    ${watchPanel}
-    ${lg ? `<section class="panel w6">
+    </section>`;
+  const extra = lg ? [`<section class="panel w6">
       <div class="phead"><h2>League race</h2><a href="#${S.div}-leagues">Projections →</a></div>
       <p class="note" style="margin:0 0 6px">${esc(lg.name)}: chance of finishing first${lg.groups.length > 1 ? ' in their group' : ''}.</p>
       <table class="minirank"><tbody>${race.map(r => { const t = D.teams[r.id]; return `<tr><td class="l team">${t ? tl(t) : r.id}${r.grp ? `<small>${esc(r.grp)}</small>` : ''}</td><td class="num">${r.pts} pts</td><td class="num"><b>${pct(r.p1)}</b></td></tr>`; }).join('')}</tbody></table>
-    </section>
-    <section class="panel w6">
+    </section>`, `<section class="panel w6">
       <div class="phead"><h2>This week</h2><a href="#${S.div}-week">Weekly recap →</a></div>
       <h3>Climbing</h3>${riseList(4)}
       <h3 style="margin-top:14px">Upsets</h3>${upList(3)}
-    </section>` : `<section class="panel w6">
+    </section>`] : [`<section class="panel w6">
       <div class="phead"><h2>Climbing</h2><a href="#${S.div}-week">This week →</a></div>${riseList(6)}
-    </section>
-    <section class="panel w6">
+    </section>`, `<section class="panel w6">
       <div class="phead"><h2>Upsets this week</h2><a href="#${S.div}-games">More →</a></div>${upList(6)}
-    </section>`}
-  </div>`;
+    </section>`];
+  // Your team first. Before a team is picked, the welcome box takes the top of the page.
+  const panels = x ? [myTeamPanel(D), flightPanel(x), comingPanel, watchPanel, ...extra]
+    : [rankPanel, comingPanel, watchPanel, ...extra];
+  if (panels.length % 2) panels[panels.length - 1] = panels[panels.length - 1].replace('class="panel w6', 'class="panel w6 wide');
+  return `
+  ${x ? '' : `<div class="dash" style="margin-bottom:20px">${welcomePanel(D)}</div>`}
+  <div class="homehead"><div>
+  <p class="eyebrow">${esc(D.div)} ${levelName()} · ${esc(dateLabel(today))}</p>
+  <h1>${esc(D.div)} ${S.gender === 'female' ? 'Female ' : ''}${S.level === 'house' ? 'House' : 'Rep'} at a glance</h1>
+  <p class="lede">Your team, its flight, the games coming up and the week's best matchup. Every team and game links through to its full scouting report.</p>
+  </div>${shareCard()}</div>
+  <div class="dash">
+    ${x && S.addMode ? welcomePanel(D) : ''}
+    ${yourWeekPanel()}
+    ${panels.join('\n')}
+  </div>
+  ${shareCard().replace('panel sharecard', 'panel sharecard bottom')}`;
 }
 
 /* ---------- rankings ---------- */
@@ -896,6 +1074,7 @@ function viewTeam(D, t) {
   <h1>${esc(t.n)} ${starBtn(S.div, t.id, true)} ${shareBtn(`${S.div}-team-${t.id}`, t.n)}</h1>
   <p class="lede">${t.rg === 'visitor' ? `A visiting team, seen only in tournaments. It's rated through those games but isn't included in the ${esc(t.c)} rankings.` : `${esc(t.lg || '')}${t.grp ? ' · ' + esc(t.grp) : ''}. Ranked <b>${meR.rank} of ${pcahaList.length}</b> ${rgName} teams in ${esc(t.c)}${me.rank !== meR.rank ? ` (${me.rank} of ${list.length} counting PCAHA and Island teams)` : ''}.`}</p>
   <p class="summary">${teamSummary(D, t)}</p>
+  ${bragBox(S.div, t)}
   <div class="tiles">
     <div class="tile"><div class="k" tabindex="0" data-tip="power">Power</div><div class="v num">${sgn(pw)}</div><div class="s">goals a game vs an average ${esc(t.c)} team</div></div>
     <div class="tile"><div class="k" tabindex="0" data-tip="record">Record</div><div class="v num">${t.w}-${t.l}-${t.t}</div><div class="s">${t.gf} for, ${t.ga} against</div></div>
@@ -906,7 +1085,7 @@ function viewTeam(D, t) {
   </div>
   <section class="panel" style="margin-bottom:18px"><h2 style="margin-top:0">${tipSpan('hist', 'Power by week')}</h2>${histChart(t)}</section>
   <div class="grid2">
-    <section class="panel"><h2 style="margin-top:0">Upcoming games</h2>${up.length ? `<div class="games">${up.slice(0, 4).map(g => gameCard(D, g, t.id)).join('')}</div>${up.length > 4 ? `<p class="note" style="margin:10px 0 0">${up.length - 4} more in the next two weeks. Every scheduled game is listed under What's ahead below.</p>` : ''}` : '<p class="note">No games on the schedule in the next two weeks.</p>'}</section>
+    <section class="panel"><div class="phead" style="margin-bottom:10px"><h2 style="margin:0">Upcoming games</h2>${calMenu(S.div, t)}</div>${up.length ? `<div class="games">${up.slice(0, 4).map(g => gameCard(D, g, t.id)).join('')}</div>${up.length > 4 ? `<p class="note" style="margin:10px 0 0">${up.length - 4} more in the next two weeks. Every scheduled game is listed under What's ahead below.</p>` : ''}` : '<p class="note">No games on the schedule in the next two weeks.</p>'}</section>
     <section class="panel"><h2 style="margin-top:0">Goals by period</h2>${t.sheets ? periodChart(t) : '<p class="note">No game sheets yet.</p>'}
       <h3 style="margin-top:14px">Special teams <span class="note">(estimated)</span></h3>
       <div class="tframe"><table><tbody>
@@ -1496,9 +1675,20 @@ function bind(D) {
   const app = $('#app');
   app.onclick = e => {
     const b = e.target.closest('button'); const a = e.target.closest('[data-cat-link]');
-    if (a) { S.cat[S.div] = a.dataset.catLink; return; }
+    if (a) { S.cat[a.dataset.catDiv || S.div] = a.dataset.catLink; return; }
     if (!b) return;
     if (b.dataset.hcat) { S.cat[S.div] = b.dataset.hcat; app.innerHTML = viewHome(D); bind(D); }
+    else if (b.dataset.pdiv) { S.wq = ''; store('rr-div', b.dataset.pdiv); go(`${b.dataset.pdiv}-home`); }
+    else if (b.dataset.wclub) { S.wq = b.dataset.wclub; app.innerHTML = viewHome(D); bind(D); const w = $('#wq'); if (w) { w.focus(); w.setSelectionRange(w.value.length, w.value.length); } }
+    else if (b.dataset.pick) {
+      const key = b.dataset.pick, [pd, pid] = key.split(':'), PD = S.data[pd], pt = PD && PD.teams[pid];
+      if (!isStar(pd, pid)) toggleStar(key);
+      S.homeStar = key; store('rr-home', key); S.wq = ''; S.addMode = false;
+      if (pt) { S.level = levelOf(pt.c); S.gender = genderOf(pt.c); store('rr-level', S.level); store('rr-gender', S.gender); chrome(); toast(`Following ${shortName(pt)}. Welcome to RinkRank!`); }
+      app.innerHTML = viewHome(D); bind(D); window.scrollTo(0, 0);
+    }
+    else if (b.dataset.addteam) { S.addMode = !S.addMode; app.innerHTML = viewHome(D); bind(D); const w = $('#welcome'); if (w) w.scrollIntoView({ behavior: 'smooth', block: 'start' }); }
+    else if (b.dataset.rscope) { S.rscope = b.dataset.rscope; const y = window.scrollY; app.innerHTML = viewHome(D); bind(D); window.scrollTo(0, y); }
     else if (b.dataset.hstar) { S.homeStar = b.dataset.hstar; store('rr-home', S.homeStar); app.innerHTML = viewHome(D); bind(D); }
     else if (b.dataset.cat) { S.cat[S.div] = b.dataset.cat; S.q = ''; app.innerHTML = viewRankings(D); bind(D); }
     else if (b.dataset.region) { S.region = b.dataset.region; app.innerHTML = viewRankings(D); bind(D); }
@@ -1510,6 +1700,8 @@ function bind(D) {
   };
   const q = $('#q');
   if (q) q.oninput = () => { S.q = q.value; const pos = q.selectionStart; app.innerHTML = viewRankings(D); bind(D); const nq = $('#q'); nq.focus(); nq.setSelectionRange(pos, pos); };
+  const wq = $('#wq');
+  if (wq) wq.oninput = () => { S.wq = wq.value; $('#wres').innerHTML = welcomeResults(D); const cc = $('.clubchips'); if (cc) cc.hidden = !!S.wq; };
   const hp = $('#hpick');
   if (hp) hp.onchange = () => { if (!hp.value) return; toggleStar(`${S.div}:${hp.value}`); S.homeStar = `${S.div}:${hp.value}`; store('rr-home', S.homeStar); const y = window.scrollY; app.innerHTML = viewHome(D); bind(D); window.scrollTo(0, y); };
   const vs = $('#vs');

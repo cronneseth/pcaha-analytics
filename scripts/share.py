@@ -134,6 +134,160 @@ def game_card(D, g, path):
     save(im, path)
 
 
+NAVY = (18, 58, 122)
+
+
+def home_card(path):
+    """The preview people see when rinkrank.net itself is pasted into a chat."""
+    im = Image.new('RGB', (W, H), NAVY)
+    d = ImageDraw.Draw(im)
+    d.rectangle([0, 0, W, 14], fill=RED)
+    d.rectangle([W * 2 // 5, 0, W * 3 // 5, 14], fill=(255, 255, 255))
+    x = 70
+    d.text((x, 120), 'RINK', font=font(120), fill=(255, 255, 255))
+    d.text((x + d.textlength('RINK', font=font(120)), 120), 'RANK', font=font(120), fill=(255, 120, 135))
+    d.text((x, 270), 'Power rankings, game previews and league odds', font=font(44), fill=(255, 255, 255))
+    d.text((x, 326), 'for PCAHA minor hockey. Follow your team, free.', font=font(44), fill=(220, 230, 245))
+    # a strength bar, the site's signature
+    x0, x1, y = x, W - 70, 440
+    d.rounded_rectangle([x0, y, x1, y + 30], 15, fill=RED)
+    d.rounded_rectangle([x0, y, x0 + (x1 - x0) * 0.62, y + 30], 15, fill=(110, 165, 255))
+    d.rectangle([x0 + (x1 - x0) * 0.62 - 15, y, x0 + (x1 - x0) * 0.62, y + 30], fill=(110, 165, 255))
+    d.text((x, 500), 'Every team, every flight, every game  ·  rinkrank.net', font=font(32), fill=(220, 230, 245))
+    save(im, path)
+
+
+def icons(pub):
+    """App icon for browser tabs and 'Add to Home Screen', plus the web manifest."""
+    big = Image.new('RGB', (512, 512), NAVY)
+    d = ImageDraw.Draw(big)
+    d.rectangle([0, 0, 512, 40], fill=RED)
+    d.rectangle([205, 0, 307, 40], fill=(255, 255, 255))
+    f = font(300)
+    d.text(((512 - d.textlength('R', font=f)) / 2 - 6, 70), 'R', font=f, fill=(255, 255, 255))
+    d.rounded_rectangle([96, 420, 416, 452], 16, fill=RED)
+    d.rounded_rectangle([96, 420, 300, 452], 16, fill=(110, 165, 255))
+    d.rectangle([284, 420, 300, 452], fill=(110, 165, 255))
+    for size, name in ((512, 'icon-512.png'), (192, 'icon-192.png'), (180, 'apple-touch-icon.png'), (48, 'favicon.png')):
+        big.resize((size, size), Image.LANCZOS).save(os.path.join(pub, name))
+    manifest = {
+        'name': BRAND, 'short_name': BRAND, 'start_url': '/', 'display': 'standalone',
+        'background_color': '#f2f5f7', 'theme_color': '#123a7a',
+        'description': 'Power rankings, game previews and league odds for PCAHA minor hockey.',
+        'icons': [{'src': '/icon-192.png', 'sizes': '192x192', 'type': 'image/png'},
+                  {'src': '/icon-512.png', 'sizes': '512x512', 'type': 'image/png', 'purpose': 'any maskable'}],
+    }
+    with open(os.path.join(pub, 'manifest.webmanifest'), 'w') as fh:
+        json.dump(manifest, fh)
+
+
+# ---------- brag cards: good news only, for parents to post in the team chat ----------
+def brag(D, t, rk, proj_rows, today):
+    """The single best piece of good news for a team, or None. Never anything negative."""
+    if t['rg'] != 'pcaha' or t['gp'] < 4:
+        return None
+    nm, cands = short(t), []
+    flight = t.get('grp') or ''
+    row = proj_rows.get(t['id'])
+    if row:
+        st = row.get('status') or ''
+        where = f"{t.get('lg') or ''}{' · ' + flight if flight else ''}"
+        if st == 'Clinched first':
+            cands.append((100, f'Clinched first{" in " + flight if flight else ""}', where))
+        elif st.startswith('Top half clinched'):
+            cands.append((90, 'Top-half finish clinched', where))
+    if rk and rk[0] <= 3 and t['gp'] >= 6:
+        cands.append((80, f'#{rk[0]} of {rk[1]} in {t["c"]}', 'RinkRank power rankings'))
+    streak = 0
+    for g in reversed(t['log']):
+        if g['r'] != 'W':
+            break
+        streak += 1
+    if streak >= 4:
+        cands.append((75, f'{streak} straight wins', f"Record {t['w']}-{t['l']}-{t['t']}"))
+    h = t.get('hist') or []
+    if len(h) >= 2 and rk:
+        cut = (dt.date.fromisoformat(today) - dt.timedelta(days=28)).isoformat()
+        past = [x for x in h[:-1] if x[0] <= cut] or h[:1]
+        climb = past[-1][2] - h[-1][2]
+        if climb >= 3:
+            cands.append((70 if climb >= 5 else 50, f'Up {climb} spots this month', f'Now #{rk[0]} of {rk[1]} in {t["c"]}'))
+    last5 = t['form']
+    if len(last5) == 5 and 'L' not in last5:
+        w5 = last5.count('W')
+        cands.append((60, 'Unbeaten in their last 5', f'{w5} win{"s" if w5 != 1 else ""}, {5 - w5} tie{"s" if 5 - w5 != 1 else ""}'))
+    if streak == 3:
+        cands.append((45, '3 straight wins', f"Record {t['w']}-{t['l']}-{t['t']}"))
+    if not cands:
+        return None
+    _, head, sub = max(cands)
+    return {'h': head, 's': sub, 'n': nm}
+
+
+def brag_card(D, t, b, path):
+    im = Image.new('RGB', (W, H), NAVY)
+    d = ImageDraw.Draw(im)
+    d.rectangle([0, 0, W, 14], fill=RED)
+    d.rectangle([W * 2 // 5, 0, W * 3 // 5, 14], fill=(255, 255, 255))
+    d.text((60, 52), BRAND.upper(), font=font(34), fill=(255, 255, 255))
+    d.text((60, 120), f"Good news · {t['c']}".upper(), font=font(26), fill=(190, 205, 230))
+    d.text((60, 165), t['n'], font=fit_text(d, t['n'], W - 120, 56), fill=(255, 255, 255))
+    d.text((60, 270), b['h'], font=fit_text(d, b['h'], W - 120, 104, 48), fill=(255, 200, 80))
+    d.text((60, 410), b['s'], font=fit_text(d, b['s'], W - 120, 40), fill=(220, 230, 245))
+    d.text((60, 540), 'Follow your team at rinkrank.net', font=font(30), fill=(190, 205, 230))
+    save(im, path)
+
+
+# ---------- team calendars: subscribe once, games update themselves ----------
+def chance_word(p):
+    if p is None:
+        return 'No rating yet'
+    return ('Strong favourite' if p >= 82 else 'Favourite' if p >= 68 else 'Slight favourite' if p >= 57 else 'Even' if p > 43
+            else 'Close, slight edge to them' if p > 32 else 'Tough game' if p > 18 else 'Big challenge')
+
+
+def ics_text(s):
+    return str(s).replace('\\', '\\\\').replace(';', '\\;').replace(',', '\\,').replace('\n', '\\n')
+
+
+def ics_fold(line):
+    out, b = [], line.encode('utf-8')
+    while len(b) > 74:
+        cut = 74
+        while cut > 0 and (b[cut] & 0xC0) == 0x80:  # don't split a multi-byte character
+            cut -= 1
+        out.append(b[:cut].decode('utf-8'))
+        b = b' ' + b[cut:]
+    out.append(b.decode('utf-8'))
+    return '\r\n'.join(out)
+
+
+def team_calendar(D, div, t, url, stamp, path):
+    lines = ['BEGIN:VCALENDAR', 'VERSION:2.0', f'PRODID:-//{BRAND}//Team games//EN', 'CALSCALE:GREGORIAN', 'METHOD:PUBLISH',
+             f'X-WR-CALNAME:{ics_text(short(t))} games', f'X-WR-CALDESC:{ics_text(t["n"])} schedule from {BRAND}',
+             'X-WR-TIMEZONE:America/Vancouver', 'REFRESH-INTERVAL;VALUE=DURATION:PT6H', 'X-PUBLISHED-TTL:PT6H']
+    for d_, o, home, ar, p, st, gid in t.get('fut') or []:
+        opp = D['teams'].get(str(o))
+        title = f"{short(t)} {'vs' if home else '@'} {short(opp) if opp else 'TBD'}"
+        desc = f"How it looks going in: {chance_word(p)}.\nGame preview: {url}/#{div}-game-{gid}\nFrom {BRAND}. The odds update as results come in."
+        ev = ['BEGIN:VEVENT', f'UID:{gid}-{t["id"]}@rinkrank', f'DTSTAMP:{stamp}', f'SUMMARY:{ics_text(title)}',
+              f'DESCRIPTION:{ics_text(desc)}', f'URL:{url}/#{div}-game-{gid}']
+        if ar:
+            ev.append(f'LOCATION:{ics_text(ar)}')
+        if st:
+            start = dt.datetime.fromisoformat(st.replace('Z', '+00:00'))
+            end = start + dt.timedelta(minutes=75)
+            ev += [f'DTSTART:{start:%Y%m%dT%H%M%SZ}', f'DTEND:{end:%Y%m%dT%H%M%SZ}']
+        else:
+            day = dt.date.fromisoformat(d_)
+            ev += [f'DTSTART;VALUE=DATE:{day:%Y%m%d}', f'DTEND;VALUE=DATE:{day + dt.timedelta(days=1):%Y%m%d}']
+        ev.append('END:VEVENT')
+        lines += ev
+    lines.append('END:VCALENDAR')
+    with open(path, 'w', newline='') as fh:
+        fh.write('\r\n'.join(ics_fold(x) for x in lines) + '\r\n')
+
+
 def share_page(path, url, title, desc, image, target):
     e = html.escape
     img = f'{url}{image}' if url else image
@@ -153,15 +307,33 @@ def share_page(path, url, title, desc, image, target):
 def main():
     pub = sys.argv[1]
     url = (os.environ.get('SITE_URL') or os.environ.get('URL') or '').rstrip('/')
-    os.makedirs(os.path.join(pub, 'og'), exist_ok=True)
-    os.makedirs(os.path.join(pub, 's'), exist_ok=True)
+    url = url or 'https://rinkrank.net'
+    for sub in ('og', 's', 'cal'):
+        os.makedirs(os.path.join(pub, sub), exist_ok=True)
     index = json.load(open(os.path.join(pub, 'data', 'index.json')))
     today = index.get('today') or dt.date.today().isoformat()
     soon = (dt.date.fromisoformat(today) + dt.timedelta(days=8)).isoformat()
-    n_t = n_g = 0
+    stamp = dt.datetime.now(dt.timezone.utc).strftime('%Y%m%dT%H%M%SZ')
+    home_card(os.path.join(pub, 'og', 'home.png'))
+    icons(pub)
+    brags = {}
+    n_t = n_g = n_c = 0
     for div in index['divisions']:
         D = json.load(open(os.path.join(pub, 'data', f"{div['id']}.json")))
         rk = ranks(D)
+        proj_rows = {r['id']: r for p in D['projections'] if p['kind'] == 'League' for g in p['groups'] for r in g['rows']}
+        for t in D['teams'].values():
+            if t.get('fut'):
+                team_calendar(D, div['id'], t, url, stamp, os.path.join(pub, 'cal', f"{div['id']}-{t['id']}.ics"))
+                n_c += 1
+            b = brag(D, t, rk.get(t['id']), proj_rows, today)
+            if b:
+                key = f"{div['id']}-team-{t['id']}"
+                brags[key] = b
+                brag_card(D, t, b, os.path.join(pub, 'og', f'brag-{key}.png'))
+                share_page(os.path.join(pub, 's', f'brag-{key}.html'), url, f"{b['n']}: {b['h']}",
+                           f"{b['s']}. Follow {b['n']} on {BRAND}: rankings, every game previewed and what it takes to finish top half.",
+                           f'/og/brag-{key}.png', f'#{key}')
         for t in D['teams'].values():
             if t['rg'] == 'visitor':
                 continue
@@ -184,7 +356,9 @@ def main():
                        f"{dt.date.fromisoformat(g['d']).strftime('%a %b %-d')}. Keys to the game, head to head and how they compare on {BRAND}.",
                        f'/og/{key}.png', f'#{key}')
             n_g += 1
-    print(f'share pages: {n_t} teams, {n_g} games')
+    with open(os.path.join(pub, 'data', 'brags.json'), 'w') as fh:
+        json.dump(brags, fh, separators=(',', ':'))
+    print(f'share pages: {n_t} teams, {n_g} games, {len(brags)} brag cards, {n_c} team calendars')
 
 
 if __name__ == '__main__':
