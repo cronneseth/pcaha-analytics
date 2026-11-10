@@ -30,6 +30,161 @@ def font(size):
     return ImageFont.load_default(size=size)
 
 
+FONT_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'fonts')
+
+
+@lru_cache(maxsize=None)
+def face(kind, size, weight):
+    """The site's own typefaces (Big Shoulders for headlines, Source Sans for text), bundled in scripts/fonts."""
+    try:
+        f = ImageFont.truetype(os.path.join(FONT_DIR, 'BigShoulders.ttf' if kind == 'display' else 'SourceSans3.ttf'), size)
+        f.set_variation_by_axes([weight])
+        return f
+    except Exception:
+        return font(size)
+
+
+def fit(draw, text, max_w, kind, start, weight, min_size=30):
+    size = start
+    while size > min_size and draw.textlength(text, font=face(kind, size, weight)) > max_w:
+        size -= 2
+    return face(kind, size, weight)
+
+
+try:
+    from zoneinfo import ZoneInfo
+    LOCAL = ZoneInfo('America/Vancouver')
+except Exception:
+    LOCAL = None
+
+
+def local_time(iso):
+    if not iso:
+        return None
+    t = dt.datetime.fromisoformat(iso.replace('Z', '+00:00'))
+    if LOCAL:
+        return t.astimezone(LOCAL)
+    return t - dt.timedelta(hours=7)  # BC stays on UTC-7 year-round
+
+
+def ordinal(n):
+    return f"{n}{'th' if 11 <= n % 100 <= 13 else {1: 'st', 2: 'nd', 3: 'rd'}.get(n % 10, 'th')}"
+
+
+def flight_place(D, t):
+    """(place, teams, flight name, league points) in the team's league flight, or None before league play."""
+    for p in D['projections']:
+        if p['kind'] != 'League':
+            continue
+        for g in p['groups']:
+            if any(r['id'] == t['id'] for r in g['rows']):
+                if not any(r['gp'] > 0 for r in g['rows']):
+                    return None
+                rows = sorted(g['rows'], key=lambda r: (-r['pts'], -r['xPts']))
+                i = next(k for k, r in enumerate(rows) if r['id'] == t['id'])
+                return i + 1, len(rows), g.get('name') or t.get('grp') or p['name'], rows[i]['pts']
+    return None
+
+
+def next_game(D, t):
+    """The team's next game as a dict: date, local start, opponent, home?, rink, chance word."""
+    for g in D['upcoming']:
+        if t['id'] in (g['h'], g['a']):
+            home = g['h'] == t['id']
+            mine, theirs = (g['ph'], g['pa']) if home else (g['pa'], g['ph'])
+            p = 100 * (mine + g['pt'] / 2) / max(g['ph'] + g['pt'] + g['pa'], 1)
+            return {'d': g['d'], 'st': g.get('st'), 'o': D['teams'].get(str(g['a'] if home else g['h'])), 'home': home,
+                    'ar': g.get('ar'), 'word': chance_word(p), 'p': p}
+    f = (t.get('fut') or [None])[0]
+    if f:
+        return {'d': f[0], 'st': f[5], 'o': D['teams'].get(str(f[1])), 'home': bool(f[2]), 'ar': f[3],
+                'word': chance_word(f[4]), 'p': f[4]}
+    return None
+
+
+def when_text(g):
+    lt = local_time(g['st'])
+    day = (lt.date() if lt else dt.date.fromisoformat(g['d'])).strftime('%a %b %-d')
+    return f"{day} · {lt.strftime('%-I:%M %p')}" if lt else day
+
+
+def word_colour(p):
+    return GOOD if p is not None and p >= 57 else BAD if p is not None and p <= 32 else TIE
+
+
+def team_card(D, t, rk, path, brag=None):
+    """The card a parent drops into the team chat: where we stand, how we're playing, who's next."""
+    WHITE, NAVY_, GOLD = (255, 255, 255), (18, 58, 122), (255, 200, 80)
+    im = Image.new('RGB', (W, H), ICE)
+    d = ImageDraw.Draw(im)
+    d.rectangle([0, 0, W, 12], fill=BLUE)
+    d.rectangle([W * 2 // 5, 0, W * 3 // 5, 12], fill=RED)
+    d.text((60, 34), BRAND.upper(), font=face('display', 40, 800), fill=NAVY_)
+    tag = f"{t['c']}{' · ' + t['grp'] if t.get('grp') else ''}".upper()
+    d.text((W - 60 - d.textlength(tag, font=face('text', 26, 700)), 44), tag, font=face('text', 26, 700), fill=MUTED)
+    name = short(t).upper()
+    d.text((60, 82), name, font=fit(d, name, W - 120, 'display', 96, 800, 56), fill=INK)
+
+    # Left: where they stand
+    fp = flight_place(D, t)
+    if fp:
+        big, l1, l2 = ordinal(fp[0]).upper(), f"of {fp[1]} in {fp[2]}", f"{fp[3]} league point{'s' if fp[3] != 1 else ''}"
+    elif rk:
+        big, l1, l2 = f"#{rk[0]}", f"of {rk[1]} in {t['c']}", 'RinkRank power ranking'
+    else:
+        big, l1, l2 = t['c'], '', ''
+    bf = fit(d, big, 300, 'display', 170, 900, 90)
+    d.text((56, 188), big, font=bf, fill=BLUE)
+    bx = 60 + d.textlength(big, font=bf) + 22
+    d.text((bx, 238), l1, font=fit(d, l1, 600 - bx, 'text', 36, 700, 22), fill=INK)
+    d.text((bx, 284), l2, font=fit(d, l2, 600 - bx, 'text', 28, 400, 20), fill=MUTED)
+    rec = f"{t['w']}-{t['l']}-{t['t']}"
+    d.text((60, 392), 'RECORD', font=face('text', 22, 700), fill=MUTED)
+    d.text((60, 414), rec, font=face('display', 64, 800), fill=INK)
+    x = 60 + max(d.textlength(rec, font=face('display', 64, 800)), 120) + 44
+    d.text((x, 392), 'LAST 5', font=face('text', 22, 700), fill=MUTED)
+    for r in reversed(t['form']):
+        col = {'W': GOOD, 'L': BAD, 'T': TIE}[r]
+        d.rounded_rectangle([x, 426, x + 50, 476], 8, fill=col)
+        d.text((x + 25, 451), r, font=face('display', 36, 800), fill=WHITE, anchor='mm')
+        x += 58
+
+    # Right: the next game
+    x0, y0, x1, y1 = 640, 190, W - 60, 500
+    d.rounded_rectangle([x0, y0, x1, y1], 16, fill=WHITE, outline=LINE, width=2)
+    d.rounded_rectangle([x0, y0, x0 + 10, y1], 5, fill=BLUE)
+    g = next_game(D, t)
+    px = x0 + 36
+    if g:
+        d.text((px, y0 + 26), f"NEXT GAME · {when_text(g).upper()}", font=fit(d, f"NEXT GAME · {when_text(g).upper()}", x1 - px - 24, 'text', 26, 700, 18), fill=BLUE)
+        opp = f"{'vs' if g['home'] else '@'} {short(g['o']) if g['o'] else 'TBD'}".upper()
+        d.text((px, y0 + 64), opp, font=fit(d, opp, x1 - px - 24, 'display', 64, 800, 36), fill=INK)
+        if g['ar']:
+            d.text((px, y0 + 146), g['ar'], font=fit(d, g['ar'], x1 - px - 24, 'text', 28, 400, 18), fill=MUTED)
+        d.text((px, y0 + 206), 'GOING IN', font=face('text', 22, 700), fill=MUTED)
+        w = g['word']
+        wf = fit(d, w, x1 - px - 24, 'display', 50, 800, 30)
+        d.text((px, y0 + 228), w.upper(), font=wf, fill=word_colour(g['p']))
+    else:
+        d.text((px, y0 + 26), 'POWER RANKING', font=face('text', 26, 700), fill=BLUE)
+        d.text((px, y0 + 64), f"#{rk[0]} of {rk[1]}" if rk else '–', font=face('display', 80, 800), fill=INK)
+        d.text((px, y0 + 170), f"in {t['c']}", font=face('text', 30, 400), fill=MUTED)
+
+    # Footer: the good news, and where to follow
+    d.rectangle([0, 540, W, H], fill=NAVY_)
+    if brag:
+        import math
+        cx, cy, R = 80, 585, 20
+        d.polygon([(cx + (R if k % 2 == 0 else R * 0.42) * math.sin(k * math.pi / 5), cy - (R if k % 2 == 0 else R * 0.42) * math.cos(k * math.pi / 5)) for k in range(10)], fill=GOLD)
+        d.text((112, 585), brag['h'], font=fit(d, brag['h'], 640, 'display', 46, 800, 26), fill=GOLD, anchor='lm')
+    else:
+        msg = 'Rankings and every game previewed, free'
+        d.text((60, 585), msg, font=fit(d, msg, 700, 'text', 30, 600, 22), fill=(220, 230, 245), anchor='lm')
+    site = 'FOLLOW AT RINKRANK.NET'
+    d.text((W - 60, 585), site, font=face('display', 36, 800), fill=WHITE, anchor='rm')
+    save(im, path)
+
+
 def fit_text(draw, text, max_w, start, min_size=28):
     size = start
     while size > min_size and draw.textlength(text, font=font(size)) > max_w:
@@ -72,33 +227,6 @@ def cat_mean(D, cat):
     return sum(v) / max(len(v), 1)
 
 
-def team_card(D, t, rk, path):
-    im, d = base_card(f"{D['div']} · {t['c']}")
-    d.text((60, 170), t['n'], font=fit_text(d, t['n'], W - 120, 64), fill=INK)
-    rank_txt = f"#{rk[0]} of {rk[1]}" if rk else ''
-    d.text((60, 270), rank_txt, font=font(96), fill=BLUE)
-    sub = f"in {t['c']}" + (' (PCAHA)' if t['rg'] == 'pcaha' else '')
-    d.text((60 + d.textlength(rank_txt, font=font(96)) + 24, 318), sub, font=font(32), fill=MUTED)
-    pw = t['net'] - cat_mean(D, t['c'])
-    stats = [('Record', f"{t['w']}-{t['l']}-{t['t']}"), ('Power', f"{'+' if pw >= 0 else '−'}{abs(pw):.1f}"),
-             ('Goals for', str(t['gf'])), ('Goals against', str(t['ga']))]
-    x = 60
-    for k, v in stats:
-        d.text((x, 430), k.upper(), font=font(22), fill=MUTED)
-        d.text((x, 462), v, font=font(48), fill=INK)
-        x += 250
-    form = list(reversed(t['form']))
-    x = 60
-    d.text((x, 548), 'LAST 5', font=font(22), fill=MUTED)
-    x += 110
-    for r in form:
-        col = {'W': GOOD, 'L': BAD, 'T': TIE}[r]
-        d.rounded_rectangle([x, 540, x + 40, 580], 6, fill=col)
-        d.text((x + 20 - d.textlength(r, font=font(26)) / 2, 545), r, font=font(26), fill=(255, 255, 255))
-        x += 50
-    save(im, path)
-
-
 def save(im, path):
     # Flat colours and text: a 64-colour palette keeps each image small and fast to write.
     im.quantize(colors=64, method=Image.Quantize.MEDIANCUT).save(path)
@@ -138,22 +266,52 @@ NAVY = (18, 58, 122)
 
 
 def home_card(path):
-    """The preview people see when rinkrank.net itself is pasted into a chat."""
+    """The invite people see when rinkrank.net itself is pasted into a chat. No team: it's for every parent."""
+    WHITE, SOFT, GOLD, SKY = (255, 255, 255), (205, 218, 238), (255, 200, 80), (110, 165, 255)
     im = Image.new('RGB', (W, H), NAVY)
     d = ImageDraw.Draw(im)
     d.rectangle([0, 0, W, 14], fill=RED)
-    d.rectangle([W * 2 // 5, 0, W * 3 // 5, 14], fill=(255, 255, 255))
-    x = 70
-    d.text((x, 120), 'RINK', font=font(120), fill=(255, 255, 255))
-    d.text((x + d.textlength('RINK', font=font(120)), 120), 'RANK', font=font(120), fill=(255, 120, 135))
-    d.text((x, 270), 'Power rankings, game previews and league odds', font=font(44), fill=(255, 255, 255))
-    d.text((x, 326), 'for PCAHA minor hockey. Follow your team, free.', font=font(44), fill=(220, 230, 245))
-    # a strength bar, the site's signature
-    x0, x1, y = x, W - 70, 440
-    d.rounded_rectangle([x0, y, x1, y + 30], 15, fill=RED)
-    d.rounded_rectangle([x0, y, x0 + (x1 - x0) * 0.62, y + 30], 15, fill=(110, 165, 255))
-    d.rectangle([x0 + (x1 - x0) * 0.62 - 15, y, x0 + (x1 - x0) * 0.62, y + 30], fill=(110, 165, 255))
-    d.text((x, 500), 'Every team, every flight, every game  ·  rinkrank.net', font=font(32), fill=(220, 230, 245))
+    d.rectangle([W * 2 // 5, 0, W * 3 // 5, 14], fill=WHITE)
+    x = 64
+    d.text((x, 44), 'RINK', font=face('display', 48, 800), fill=WHITE)
+    d.text((x + d.textlength('RINK', font=face('display', 48, 800)), 44), 'RANK', font=face('display', 48, 800), fill=(255, 120, 135))
+    d.text((x, 112), 'WHERE DOES', font=face('display', 92, 800), fill=WHITE)
+    d.text((x, 196), 'YOUR TEAM RANK?', font=face('display', 92, 800), fill=GOLD)
+    perks = ['The best place to follow your team', 'The most analytics in minor hockey',
+             'Scouting reports on every opponent', 'Flight standings and battle previews']
+    y = 320
+    for p in perks:
+        d.ellipse([x, y + 6, x + 26, y + 32], fill=SKY)
+        d.line([(x + 7, y + 19), (x + 12, y + 25), (x + 20, y + 13)], fill=NAVY, width=4)
+        d.text((x + 42, y), p, font=fit(d, p, 640, 'text', 32, 600, 24), fill=WHITE)
+        y += 50
+    d.text((x, 545), 'For PCAHA teams only  \u00b7  Free  \u00b7  rinkrank.net', font=face('text', 30, 700), fill=SOFT)
+
+    # A sample of what they'll see: a flight table and a game preview, with "your team" in it.
+    cx0, cy0, cx1 = 760, 70, W - 56
+    d.rounded_rectangle([cx0, cy0, cx1, cy0 + 268], 18, fill=WHITE)
+    d.text((cx0 + 26, cy0 + 22), 'FLIGHT STANDINGS', font=face('text', 20, 700), fill=MUTED)
+    rows = [('1', 'Ridge Meadows', '14'), ('2', 'Your team', '12'), ('3', 'North Shore', '11'), ('4', 'Richmond', '9')]
+    ry = cy0 + 60
+    for rk_, nm, pts in rows:
+        me = nm == 'Your team'
+        if me:
+            d.rounded_rectangle([cx0 + 14, ry - 6, cx1 - 14, ry + 38], 8, fill=(255, 241, 204))
+        f = face('text', 28, 700 if me else 400)
+        d.text((cx0 + 28, ry), rk_, font=f, fill=INK)
+        d.text((cx0 + 62, ry), nm, font=f, fill=BLUE if me else INK)
+        d.text((cx1 - 28, ry), f'{pts} pts', font=f, fill=INK, anchor='ra')
+        ry += 48
+    gy0 = cy0 + 290
+    d.rounded_rectangle([cx0, gy0, cx1, gy0 + 200], 18, fill=WHITE)
+    d.text((cx0 + 26, gy0 + 22), 'NEXT GAME \u00b7 SAT 9:15 AM', font=face('text', 20, 700), fill=BLUE)
+    d.text((cx0 + 26, gy0 + 52), 'YOUR TEAM VS NORTH SHORE', font=fit(d, 'YOUR TEAM VS NORTH SHORE', cx1 - cx0 - 52, 'display', 40, 800, 26), fill=INK)
+    bx0, bx1, by = cx0 + 26, cx1 - 26, gy0 + 112
+    split = bx0 + (bx1 - bx0) * 0.6
+    d.rounded_rectangle([bx0, by, bx1, by + 22], 11, fill=RED)
+    d.rounded_rectangle([bx0, by, split, by + 22], 11, fill=BLUE)
+    d.rectangle([split - 11, by, split, by + 22], fill=BLUE)
+    d.text((cx0 + 26, gy0 + 148), 'Going in: slight favourite', font=face('text', 26, 700), fill=GOOD)
     save(im, path)
 
 
@@ -338,12 +496,16 @@ def main():
             if t['rg'] == 'visitor':
                 continue
             key = f"{div['id']}-team-{t['id']}"
-            team_card(D, t, rk.get(t['id']), os.path.join(pub, 'og', f'{key}.png'))
             r = rk.get(t['id'])
+            team_card(D, t, r, os.path.join(pub, 'og', f'{key}.png'), brags.get(key))
+            fp, g = flight_place(D, t), next_game(D, t)
+            stand = f"{ordinal(fp[0])} in {fp[2]}" if fp else (f"#{r[0]} of {r[1]} in {t['c']}" if r else t['c'])
+            nxt = (f"Next: {when_text(g).replace(' · ', ' ')} {'vs' if g['home'] else '@'} {short(g['o']) if g['o'] else 'TBD'}"
+                   f" ({g['word'].lower()}). ") if g else ''
             share_page(os.path.join(pub, 's', f'{key}.html'), url,
-                       f"{t['n']}: {'#%d of %d in %s' % (r[0], r[1], t['c']) if r else t['c']}",
-                       f"Record {t['w']}-{t['l']}-{t['t']}. Power rankings, scouting report and schedule on {BRAND}.",
-                       f'/og/{key}.png', f'#{key}')
+                       f"{short(t)}: {stand} ({t['w']}-{t['l']}-{t['t']})",
+                       f"{nxt}Free rankings and every game previewed on {BRAND}.",
+                       f'/og/{key}.png?v={today}', f'#{key}')
             n_t += 1
         for g in D['upcoming']:
             if g['d'] > soon or str(g['h']) not in D['teams'] or str(g['a']) not in D['teams']:

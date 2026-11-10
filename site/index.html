@@ -2,9 +2,9 @@
 <meta name="claude:viewport-fit-sides" content="cover">
 <meta name="description" content="Power rankings, strength ratings, game odds and league projections for PCAHA minor hockey. An independent site.">
 <meta property="og:type" content="website"><meta property="og:site_name" content="RinkRank">
-<meta property="og:title" content="RinkRank: PCAHA minor hockey rankings and game previews">
-<meta property="og:description" content="Follow your team, free: where they rank in their flight, how every game looks going in, and what it takes to finish top half.">
-<meta property="og:url" content="https://rinkrank.net/"><meta property="og:image" content="https://rinkrank.net/og/home.png">
+<meta property="og:title" content="Where does your team rank? | RinkRank">
+<meta property="og:description" content="The best place to follow your PCAHA team: flight standings, scouting reports on every opponent and battle previews. Free, no sign-up.">
+<meta property="og:url" content="https://rinkrank.net/"><meta property="og:image" content="https://rinkrank.net/og/home.png?v=2">
 <meta property="og:image:width" content="1200"><meta property="og:image:height" content="630"><meta name="twitter:card" content="summary_large_image">
 <link rel="icon" type="image/png" href="/favicon.png"><link rel="apple-touch-icon" href="/apple-touch-icon.png">
 <link rel="manifest" href="/manifest.webmanifest"><meta name="theme-color" content="#123a7a">
@@ -198,6 +198,9 @@ table.compare td.win { font-weight: 700; color: var(--blue); }
 .trend { display: inline-flex; align-items: center; gap: 6px; }
 .sharebtn { font: 600 14px/1 var(--body); padding: 8px 14px; border-radius: 999px; border: 1px solid var(--blue); background: var(--board); color: var(--blue); cursor: pointer; vertical-align: 8px; text-transform: none; letter-spacing: 0; }
 .sharebtn:hover { background: var(--blue); color: #fff; }
+.wabtn { display: inline-block; font: 600 14px/1 var(--body); padding: 9px 14px; border-radius: 999px; background: #1f8f4e; color: #fff; vertical-align: 8px; text-transform: none; letter-spacing: 0; }
+.wabtn::before { content: "\1F4AC  "; }
+.wabtn:hover { background: #17733e; color: #fff; text-decoration: none; }
 #toast { position: fixed; left: 50%; bottom: calc(24px + env(safe-area-inset-bottom, 0px)); transform: translateX(-50%); background: var(--ink); color: var(--board); padding: 10px 16px; border-radius: 8px; font-size: 14px; z-index: 40; max-width: calc(100vw - 32px); overflow-wrap: anywhere; }
 footer b { display: inline-block; margin-top: 6px; color: var(--ink); font-weight: 600; }
 footer { border-top: 1px solid var(--line); color: var(--muted); font-size: 14px; padding-block: 18px 30px; }
@@ -693,7 +696,7 @@ function aheadSection(D, t) {
 // Word of mouth is how hockey parents find things. One card, the usual ways parents pass links around.
 function shareCard() {
   const url = location.origin + location.pathname;
-  const msg = 'Free power rankings, game previews and league odds for PCAHA minor hockey. Follow your team and see every game for the week: ';
+  const msg = '\u{1F3D2} Where does your team rank? The best place to follow your PCAHA team: flight standings, scouting reports on every opponent and battle previews. Free, no sign-up. ';
   const enc = encodeURIComponent, full = enc(msg + url);
   const phone = matchMedia('(pointer: coarse)').matches;  // touch devices get the phone's own share sheet
   return `<aside class="panel sharecard">
@@ -712,7 +715,7 @@ function shareCard() {
 document.addEventListener('click', async e => {
   const url = location.origin + location.pathname;
   if (e.target.closest('[data-shareapp]')) {
-    try { await navigator.share({ title: 'RinkRank', text: 'Free power rankings, game previews and league odds for PCAHA minor hockey.', url }); } catch (err) { /* closed */ }
+    try { await navigator.share({ title: 'RinkRank', text: '\u{1F3D2} Where does your team rank? The best place to follow your PCAHA team: flight standings, scouting reports on every opponent and battle previews. Free, no sign-up.', url }); } catch (err) { /* closed */ }
   } else if (e.target.closest('[data-copylink]')) {
     try { await navigator.clipboard.writeText(url); toast('Link copied. Paste it into your team chat.'); } catch (err) { toast(url); }
   }
@@ -771,7 +774,7 @@ function myTeamPanel(D) {
     ${bragBox(div, t)}
     <div class="phead" style="margin:0 0 8px"><h2 style="margin:0;font-size:17px">Next game</h2>${calMenu(div, t)}</div>
     ${nx}
-    ${flightStandings(XD, div, t, true) || (t.hist.length >= 2 ? `<h2 style="margin:16px 0 4px;font-size:17px">${tipSpan('hist', 'Power by week')}</h2>${histChart(t)}` : '')}
+    ${(t.hist.length >= 2 ? `<h2 style="margin:16px 0 4px;font-size:17px">${tipSpan('hist', 'Power by week')}</h2>${histChart(t)}` : '')}
     <p style="margin:14px 0 0"><button type="button" class="chip" data-addteam="1">+ Follow another team</button></p>
     ${a2hsTip()}
   </section>`;
@@ -1102,7 +1105,7 @@ function viewTeam(D, t) {
   const rgName = { pcaha: 'PCAHA', island: 'Island' }[t.rg];
   return `
   <p class="eyebrow"><a href="#${S.div}-rankings" data-cat-link="${esc(t.c)}">${esc(t.c)} rankings</a></p>
-  <h1>${esc(t.n)} ${starBtn(S.div, t.id, true)} ${shareBtn(`${S.div}-team-${t.id}`, t.n)}</h1>
+  <h1>${esc(t.n)} ${starBtn(S.div, t.id, true)} ${shareBtn(`${S.div}-team-${t.id}`, t.n)} ${teamChatBtn(D, t)}</h1>
   <p class="lede">${t.rg === 'visitor' ? `A visiting team, seen only in tournaments. It's rated through those games but isn't included in the ${esc(t.c)} rankings.` : `${esc(t.lg || '')}${t.grp ? ' · ' + esc(t.grp) : ''}. Ranked <b>${meR.rank} of ${pcahaList.length}</b> ${rgName} teams in ${esc(t.c)}${me.rank !== meR.rank ? ` (${me.rank} of ${list.length} counting PCAHA and Island teams)` : ''}.`}</p>
   <p class="summary">${teamSummary(D, t)}</p>
   ${nextGameStrip(D, t)}
@@ -1369,6 +1372,40 @@ function histChart(t) {
     <text x="${x(0)}" y="${y(h[0][1]) - 9}" text-anchor="middle" fill="var(--ink)" style="font:600 12px var(--mono)">#${h[0][2]}</text>
     <text x="${x(h.length - 1)}" y="${y(h[h.length - 1][1]) - 10}" text-anchor="middle" fill="var(--ink)" style="font:600 12px var(--mono)">#${h[h.length - 1][2]}</text>
   </svg>`;
+}
+
+/* ---------- the team-chat message: where we stand, who's next, one link ---------- */
+function flightPlace(D, t) {
+  for (const p of D.projections) {
+    if (p.kind !== 'League') continue;
+    const g = p.groups.find(g => g.rows.some(r => r.id === t.id));
+    if (!g) continue;
+    if (!g.rows.some(r => r.gp > 0)) return null;
+    const rows = g.rows.slice().sort((a, b) => (b.pts - a.pts) || (b.xPts - a.xPts));
+    return { place: rows.findIndex(r => r.id === t.id) + 1, of: rows.length, name: g.name || t.grp || p.name };
+  }
+  return null;
+}
+function teamChatText(D, t, url) {
+  const fp = flightPlace(D, t), r = rankedList(D, t.c, t.rg).find(x => x.t.id === t.id);
+  const stand = fp ? `${ordinal(fp.place)} in ${fp.name}` : r ? `#${r.rank} in ${t.c}` : t.c;
+  const lines = [`\u{1F3D2} ${shortName(t)}: ${stand} (${t.w}-${t.l}-${t.t})`];
+  const g = D.upcoming.find(x => x.h === t.id || x.a === t.id), f = !g && t.fut && t.fut[0];
+  if (g || f) {
+    const home = g ? g.h === t.id : !!f[2], o = D.teams[g ? (home ? g.a : g.h) : f[1]];
+    const p = g ? 100 * ((home ? g.ph : g.pa) + g.pt / 2) / Math.max(g.ph + g.pt + g.pa, 1) : f[4];
+    const ar = g ? g.ar : f[3];
+    lines.push(`Next: ${dateLabel(g ? g.d : f[0])}, ${timeLabel(g ? g.st : f[5])} ${home ? 'vs' : '@'} ${o ? shortName(o) : 'TBD'}${ar ? ' at ' + ar : ''}. Going in: ${chanceWord(p).toLowerCase()}.`);
+  }
+  const b = (S.brags || {})[`${S.div}-team-${t.id}`];
+  if (b) lines.push(`⭐ ${b.h}`);
+  lines.push(`Rankings and every game previewed, free: ${url}`);
+  return lines.join('\n');
+}
+function teamChatBtn(D, t) {
+  if (!CAN_SHARE || t.rg === 'visitor') return '';
+  const url = `${location.origin}/s/${S.div}-team-${t.id}.html?d=${S.index.today}`;
+  return `<a class="wabtn" href="https://wa.me/?text=${encodeURIComponent(teamChatText(D, t, url))}" target="_blank" rel="noopener">Send to team chat</a>`;
 }
 
 /* ---------- team page: next game up top, and the best game so far ---------- */
