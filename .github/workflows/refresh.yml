@@ -2,15 +2,11 @@ name: Refresh ratings
 
 on:
   schedule:
-    # pcaha-stats scrapes at roughly 8pm/midnight PT on weekdays and 4pm/10pm on weekends.
-    # Run an hour after each (times are UTC).
-    - cron: '0 4 * * 1-5'
-    - cron: '0 8 * * 1-5'
-    - cron: '0 0 * * 0,1,6'   # 5 PM Fri, Sat and Sun (Vancouver)
-    - cron: '0 21 * * 0,6'    # 2 PM Sat and Sun, for game-day scores
-    - cron: '0 6 * * 0,6'
+    # pcaha-stats posts new scores about twice a day, at times that drift. Check every
+    # hour and only rebuild when it has posted something new. The 6 AM (Vancouver) run
+    # always rebuilds, so the day's games and previews roll forward even on quiet days.
+    - cron: '7 * * * *'
     - cron: '0 13 * * *'
-    - cron: '30 15 * * *'
   workflow_dispatch:
 
 permissions:
@@ -22,25 +18,43 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      - name: Check for new data
+        id: check
+        run: |
+          new=$(git ls-remote https://github.com/ecoTokenJames/pcaha-stats.git HEAD | cut -f1)
+          old=$(cat site/data/source_sha.txt 2>/dev/null || true)
+          echo "sha=$new" >> "$GITHUB_OUTPUT"
+          if [ "${{ github.event_name }}" = "schedule" ] && [ "${{ github.event.schedule }}" != "0 13 * * *" ] && [ "$new" = "$old" ]; then
+            echo "Nothing new from pcaha-stats since the last build"; echo "go=no" >> "$GITHUB_OUTPUT"
+          else
+            echo "go=yes" >> "$GITHUB_OUTPUT"
+          fi
+
       - name: Get the latest PCAHA Spordle data
+        if: steps.check.outputs.go == 'yes'
         run: |
           git clone --depth 1 --filter=blob:none --sparse https://github.com/ecoTokenJames/pcaha-stats.git source
           cd source && git sparse-checkout set data
 
       - uses: actions/setup-python@v5
+        if: steps.check.outputs.go == 'yes'
         with:
           python-version: '3.12'
 
       - name: Install
+        if: steps.check.outputs.go == 'yes'
         run: pip install numpy scipy
 
       - name: Build ratings
+        if: steps.check.outputs.go == 'yes'
         run: python scripts/build.py source/data site
 
       - name: Commit if changed
+        if: steps.check.outputs.go == 'yes'
         run: |
           git config user.name "rinkrank-bot"
           git config user.email "actions@users.noreply.github.com"
+          echo "${{ steps.check.outputs.sha }}" > site/data/source_sha.txt
           git add site/data
           git diff --cached --quiet && echo "No changes" || git commit -m "Refresh ratings $(date -u +%F)"
           git push
