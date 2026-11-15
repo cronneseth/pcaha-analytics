@@ -6,7 +6,8 @@ on:
     # Run an hour after each (times are UTC).
     - cron: '0 4 * * 1-5'
     - cron: '0 8 * * 1-5'
-    - cron: '0 0 * * 0,6'
+    - cron: '0 0 * * 0,1,6'   # 5 PM Fri, Sat and Sun (Vancouver)
+    - cron: '0 21 * * 0,6'    # 2 PM Sat and Sun, for game-day scores
     - cron: '0 6 * * 0,6'
     - cron: '0 13 * * *'
     - cron: '30 15 * * *'
