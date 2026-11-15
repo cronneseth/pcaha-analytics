@@ -302,6 +302,10 @@ details.calmenu .menu { position: absolute; z-index: 6; right: 0; margin-top: 6p
 details.calmenu .menu a, details.calmenu .menu button { display: block; text-align: left; padding: 9px 10px; border-radius: 6px; font: 600 14px/1.2 var(--body); color: var(--ink); background: none; border: 0; cursor: pointer; }
 details.calmenu .menu a:hover, details.calmenu .menu button:hover { background: var(--blue-soft); text-decoration: none; }
 details.calmenu .menu small { display: block; font-weight: 400; color: var(--muted); font-size: 12px; }
+.awaitbox { background: #fff8e6; border: 1px solid #f1d79a; border-radius: 10px; padding: 10px 14px; margin: 0 0 12px; }
+.awaitbox ul { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; }
+.awaitbox .note { margin: 8px 0 0; font-size: 13px; }
+.await-tag { display: inline-block; font: 700 11px/1 var(--body); text-transform: uppercase; letter-spacing: .5px; background: #8a6d1f; color: #fff; border-radius: 999px; padding: 4px 8px; margin-right: 4px; vertical-align: 1px; }
 .nextstrip { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.2fr); gap: 10px 24px; align-items: center; border-left: 4px solid var(--blue); margin: 12px 0; }
 .nextstrip .who { font: 800 22px/1.15 var(--display); text-transform: uppercase; margin: 4px 0 2px; }
 .nextstrip .who a { color: var(--ink); }
@@ -774,6 +778,7 @@ function myTeamPanel(D) {
     <p class="summary" style="margin:12px 0 0">${teamSummary(XD, t, div)}</p>
     <p style="margin:12px 0"><span class="eyebrow" tabindex="0" data-tip="form">Last 5</span> ${formCell(t.form)}${last ? ` <span class="note">Last: <b class="${last.r === 'W' ? 'up' : last.r === 'L' ? 'down' : ''}">${last.r}</b> ${last.gf}-${last.ga} ${last.h ? 'vs' : '@'} ${esc(XD.teams[last.o] ? shortName(XD.teams[last.o]) : '')}</span>` : ''}</p>
     ${bragBox(div, t)}
+    ${awaitBox(XD, awaitingFor(XD, t.id), t.id, div)}
     <div class="phead" style="margin:0 0 8px"><h2 style="margin:0;font-size:17px">Next game</h2>${calMenu(div, t)}</div>
     ${nx}
     ${(t.hist.length >= 2 ? `<h2 style="margin:16px 0 4px;font-size:17px">${tipSpan('hist', 'Power by week')}</h2>${histChart(t)}` : '')}
@@ -1133,7 +1138,7 @@ function viewTeam(D, t) {
     </section>
   </div>
   <div class="grid2">
-    <section class="panel"><div class="phead" style="margin-bottom:10px"><h2 style="margin:0">Upcoming games</h2>${calMenu(S.div, t)}</div>${up.length ? `<div class="games">${up.slice(0, 4).map(g => gameCard(D, g, t.id)).join('')}</div>${up.length > 4 ? `<p class="note" style="margin:10px 0 0">${up.length - 4} more in the next two weeks. Every scheduled game is listed under What's ahead below.</p>` : ''}` : '<p class="note">No games on the schedule in the next two weeks.</p>'}</section>
+    <section class="panel"><div class="phead" style="margin-bottom:10px"><h2 style="margin:0">Upcoming games</h2>${calMenu(S.div, t)}</div>${awaitBox(D, awaitingFor(D, t.id), t.id)}${up.length ? `<div class="games">${up.slice(0, 4).map(g => gameCard(D, g, t.id)).join('')}</div>${up.length > 4 ? `<p class="note" style="margin:10px 0 0">${up.length - 4} more in the next two weeks. Every scheduled game is listed under What's ahead below.</p>` : ''}` : '<p class="note">No games on the schedule in the next two weeks.</p>'}</section>
     ${(() => { const fs = flightStandings(D, S.div, t, false); return fs ? `<section class="panel">${fs}</section>` : ''; })()}
   </div>
   <h2 class="adv">Splits</h2>
@@ -1187,11 +1192,13 @@ function viewGames(D) {
   const games = D.upcoming.filter(inCat);
   const byDay = {}; games.forEach(g => (byDay[g.d] ||= []).push(g));
   const ups = D.upsets.filter(inCat).slice(0, 12);
+  const aw = (D.awaiting || []).filter(inCat).slice(0, 30);
   return `
   <p class="eyebrow">${esc(D.div)} · next two weeks</p>
   <h1>Upcoming games</h1>
   <p class="lede">How the two teams compare going into every scheduled ${esc(D.div)} ${levelName()} game. The longer side of the bar has the edge. Close games between two top-quarter teams are flagged as games to watch.</p>
   <div class="controls"><div class="chips" role="group" aria-label="Category">${cats.map(c => `<button type="button" class="chip" data-gcat="${esc(c)}" aria-pressed="${c === S.gamesCat}">${c === 'all' ? 'All' : esc(c)}</button>`).join('')}</div></div>
+  ${aw.length ? `<h2 style="font-size:20px">Waiting on scores</h2>${awaitBox(D, aw)}` : ''}
   ${games.length ? `<div class="days">${Object.entries(byDay).map(([d, gs]) => `<section class="day"><h3>${esc(dateLabel(d))}</h3><div class="games">${gs.map(g => gameCard(D, g)).join('')}</div></section>`).join('')}</div>`
     : '<p class="note">No games scheduled in the next two weeks for this selection.</p>'}
   <h2>Upsets, last 30 days</h2>
@@ -1374,6 +1381,19 @@ function histChart(t) {
     <text x="${x(0)}" y="${y(h[0][1]) - 9}" text-anchor="middle" fill="var(--ink)" style="font:600 12px var(--mono)">#${h[0][2]}</text>
     <text x="${x(h.length - 1)}" y="${y(h[h.length - 1][1]) - 10}" text-anchor="middle" fill="var(--ink)" style="font:600 12px var(--mono)">#${h[h.length - 1][2]}</text>
   </svg>`;
+}
+
+/* ---------- games played but not scored yet ---------- */
+const awaitingFor = (D, tid) => (D.awaiting || []).filter(g => g.h === tid || g.a === tid);
+function awaitRow(D, g, tid, div = S.div) {
+  const tm = id => D.teams[id], link = o => o ? `<a href="#${div}-team-${o.id}">${esc(shortName(o))}</a>` : 'TBD';
+  const who = tid ? `${g.h === tid ? 'vs' : '@'} ${link(tm(g.h === tid ? g.a : g.h))}` : `${link(tm(g.h))} vs ${link(tm(g.a))}`;
+  return `<li><span class="await-tag">Score coming</span> ${who} <span class="note">${esc(dateLabel(g.d))} ${esc(timeLabel(g.st))}${g.ar ? ' · ' + esc(g.ar) : ''}</span></li>`;
+}
+function awaitBox(D, games, tid, div = S.div) {
+  if (!games.length) return '';
+  return `<div class="awaitbox"><ul>${games.map(g => awaitRow(D, g, tid, div)).join('')}</ul>
+    <p class="note">Played, waiting on the score. Results appear once the game sheet is posted to PCAHA, usually within a day.</p></div>`;
 }
 
 /* ---------- the team-chat message: where we stand, who's next, one link ---------- */

@@ -179,7 +179,19 @@ def build_division(div, data_dir, sheets, sched_meta, today, pred_log):
     games = list(games.values())
     finals = [g for g in games if g['status'] == 'final' and g['homeScore'] is not None
               and g['homeTeamId'] and g['awayTeamId']]
-    upcoming = [g for g in games if g['status'] == 'scheduled' and g['date'] >= today.isoformat()]
+    # A game whose start time has passed but has no score yet is "awaiting score":
+    # it's off the upcoming list (no more previews), and shown as waiting for a result
+    # until the game sheet is posted. Older than a week, it's dropped quietly.
+    now = dt.datetime.now(dt.timezone.utc)
+
+    def started(g):
+        st = g.get('startTime')
+        return bool(st) and dt.datetime.fromisoformat(st.replace('Z', '+00:00')) <= now
+
+    upcoming = [g for g in games if g['status'] == 'scheduled' and g['date'] >= today.isoformat() and not started(g)]
+    week_ago = (today - dt.timedelta(days=7)).isoformat()
+    awaiting = [g for g in games if g['date'] >= week_ago and g['homeTeamId'] and g['awayTeamId']
+                and (g['status'] == 'awaiting' or (g['status'] == 'scheduled' and started(g)))]
     if not finals:
         return None
 
@@ -545,6 +557,11 @@ def build_division(div, data_dir, sheets, sched_meta, today, pred_log):
         # stops being updated, so the track record uses what we actually showed.
         frozen[str(g['id'])] = [up_out[-1]['ph'], up_out[-1]['pt'], up_out[-1]['pa'], today.isoformat()]
 
+    aw_out = [{'g': g['id'], 'd': g['date'], 'st': g['startTime'], 'h': g['homeTeamId'], 'a': g['awayTeamId'],
+               'ar': g.get('arena'), 's': g['scheduleId']}
+              for g in sorted(awaiting, key=lambda g: g['startTime'] or g['date'], reverse=True)
+              if g['homeTeamId'] in teams_out and g['awayTeamId'] in teams_out]
+
     # ---- upsets -----------------------------------------------------------
     since = (today - dt.timedelta(days=30)).isoformat()
     upsets = []
@@ -762,6 +779,7 @@ def build_division(div, data_dir, sheets, sched_meta, today, pred_log):
         'teams': teams_out,
         'cats': cat_out,
         'upcoming': up_out,
+        'awaiting': aw_out,
         'upsets': upsets[:40],
         'track': track,
         'projections': projections,
