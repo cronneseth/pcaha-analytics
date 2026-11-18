@@ -139,7 +139,7 @@ def team_card(D, t, rk, path, brag=None):
     d.text((bx, 238), l1, font=fit(d, l1, 600 - bx, 'text', 36, 700, 22), fill=INK)
     d.text((bx, 284), l2, font=fit(d, l2, 600 - bx, 'text', 28, 400, 20), fill=MUTED)
     rec = f"{t['w']}-{t['l']}-{t['t']}"
-    d.text((60, 392), 'RECORD', font=face('text', 22, 700), fill=MUTED)
+    d.text((60, 392), 'LEAGUE RECORD', font=face('text', 22, 700), fill=MUTED)
     d.text((60, 414), rec, font=face('display', 64, 800), fill=INK)
     x = 60 + max(d.textlength(rec, font=face('display', 64, 800)), 120) + 44
     d.text((x, 392), 'LAST 5', font=face('text', 22, 700), fill=MUTED)
@@ -362,7 +362,7 @@ def brag(D, t, rk, proj_rows, today):
             break
         streak += 1
     if streak >= 4:
-        cands.append((75, f'{streak} straight wins', f"Record {t['w']}-{t['l']}-{t['t']}"))
+        cands.append((75, f'{streak} straight wins', (f"League record {t['w']}-{t['l']}-{t['t']}" if t.get('lgp') else 'All games this season')))
     h = t.get('hist') or []
     if len(h) >= 2 and rk:
         cut = (dt.date.fromisoformat(today) - dt.timedelta(days=28)).isoformat()
@@ -375,7 +375,7 @@ def brag(D, t, rk, proj_rows, today):
         w5 = last5.count('W')
         cands.append((60, 'Unbeaten in their last 5', f'{w5} win{"s" if w5 != 1 else ""}, {5 - w5} tie{"s" if 5 - w5 != 1 else ""}'))
     if streak == 3:
-        cands.append((45, '3 straight wins', f"Record {t['w']}-{t['l']}-{t['t']}"))
+        cands.append((45, '3 straight wins', (f"League record {t['w']}-{t['l']}-{t['t']}" if t.get('lgp') else 'All games this season')))
     if not cands:
         return None
     _, head, sub = max(cands)

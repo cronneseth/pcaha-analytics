@@ -368,7 +368,7 @@ def build_division(div, data_dir, sheets, sched_meta, today, pred_log):
 
     # ---- per-team accumulation ------------------------------------------
     T = defaultdict(lambda: {
-        'gp': 0, 'w': 0, 'l': 0, 't': 0, 'gf': 0, 'ga': 0,
+        'gp': 0, 'lgp': 0, 'w': 0, 'l': 0, 't': 0, 'gf': 0, 'ga': 0, 'all': [0, 0, 0],
         'xpts': 0.0, 'pts': 0.0, 'opp': [], 'log': [],
         'ppgf': 0, 'ppga': 0, 'shgf': 0, 'shga': 0, 'ppo': 0, 'tsh': 0,
         'pen': 0, 'per': {'1': [0, 0], '2': [0, 0], '3': [0, 0], 'OT': [0, 0]},
@@ -380,30 +380,35 @@ def build_division(div, data_dir, sheets, sched_meta, today, pred_log):
         ph, pt, pa = model.outcome_probs(h, a)
         eh, ea = model.expected_goals(h, a)
         sheet = sheets.get(str(g['id']))
+        kind = sched_type(g['scheduleId']) or 'Exhibition'
         for me, op, gf, ga, pw, pl, ex_for, ex_against, side in (
             (h, a, hs, as_, ph, pa, eh, ea, 'home'),
             (a, h, as_, hs, pa, ph, ea, eh, 'away'),
         ):
             t = T[me]
             t['gp'] += 1
-            t['gf'] += gf
-            t['ga'] += ga
             res = 'W' if gf > ga else 'L' if ga > gf else 'T'
-            t[{'W': 'w', 'L': 'l', 'T': 't'}[res]] += 1
-            t['pts'] += 1 if res == 'W' else 0.5 if res == 'T' else 0
-            t['xpts'] += pw + 0.5 * pt
+            t['all']['WLT'.index(res)] += 1
             t['opp'].append(op)
-            split = t[side]
-            split['WLT'.index(res)] += 1
-            if abs(gf - ga) == 1:
-                t['one']['WLT'.index(res)] += 1
-            if abs(gf - ga) >= 5:
-                t['blow'][0 if gf > ga else 1] += 1
+            # Records count regular-season (League) games only. Placement, tournament,
+            # playoff and exhibition games still feed the ratings and the game log.
+            if kind == 'League':
+                t['lgp'] += 1
+                t['gf'] += gf
+                t['ga'] += ga
+                t[{'W': 'w', 'L': 'l', 'T': 't'}[res]] += 1
+                t['pts'] += 1 if res == 'W' else 0.5 if res == 'T' else 0
+                t['xpts'] += pw + 0.5 * pt
+                t[side]['WLT'.index(res)] += 1
+                if abs(gf - ga) == 1:
+                    t['one']['WLT'.index(res)] += 1
+                if abs(gf - ga) >= 5:
+                    t['blow'][0 if gf > ga else 1] += 1
             perf = (min(gf, 9) - min(ga, 9)) - (ex_for - ex_against)
             t['log'].append({
                 'd': g['date'], 'o': op, 'h': side == 'home', 'gf': gf, 'ga': ga,
                 'r': res, 'p': r1(pw * 100, 0), 'pf': r1(perf), 'g': g['id'],
-                'x': g.get('decidedBy'), 's': g['scheduleId'],
+                'x': g.get('decidedBy'), 's': g['scheduleId'], 'k': kind,
                 'q': (pre[g['id']]['ph'] if side == 'home' else pre[g['id']]['pa']) if g['id'] in pre else None,
             })
             if sheet:
@@ -455,7 +460,7 @@ def build_division(div, data_dir, sheets, sched_meta, today, pred_log):
             'rg': info['rg'],
             'grp': info.get('group'),
             'lg': info.get('league'),
-            'gp': t['gp'], 'w': t['w'], 'l': t['l'], 't': t['t'],
+            'gp': t['gp'], 'lgp': t['lgp'], 'w': t['w'], 'l': t['l'], 't': t['t'], 'all': t['all'],
             'gf': t['gf'], 'ga': t['ga'],
             'net': r1(net, 2), 'off': r1(gf_r, 2), 'def': r1(ga_r, 2),
             'prevNet': r1(prev[2], 2) if prev else None,
@@ -468,8 +473,8 @@ def build_division(div, data_dir, sheets, sched_meta, today, pred_log):
                      r1((lambda p: (p[0] + p[1] / 2) if g['homeTeamId'] == tid else (p[2] + p[1] / 2))(model.outcome_probs(g['homeTeamId'], g['awayTeamId'])) * 100, 0)
                      if model.has(o) else None, g.get('startTime'), g['id']]
                     for g, o in list(zip(fut, fut_opps))[:8]],
-            'ptsPct': r1(t['pts'] / t['gp'] * 100, 0),
-            'xPtsPct': r1(t['xpts'] / t['gp'] * 100, 0),
+            'ptsPct': r1(t['pts'] / t['lgp'] * 100, 0) if t['lgp'] else None,
+            'xPtsPct': r1(t['xpts'] / t['lgp'] * 100, 0) if t['lgp'] else None,
             'form': ''.join(x['r'] for x in last5),
             'formPerf': r1(np.mean([x['pf'] for x in last5]), 2) if last5 else None,
             'st': {

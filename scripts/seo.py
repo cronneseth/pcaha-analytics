@@ -153,14 +153,14 @@ def main():
             gp = t['w'] + t['l'] + t['t']
             bits = []
             if gp:
-                bits.append(f"{e(nm)} are {t['w']}-{t['l']}-{t['t']} this season")
+                bits.append(f"{e(nm)} are {t['w']}-{t['l']}-{t['t']} in regular-season league play")
                 if fp:
                     bits[-1] += f", {ordinal(fp[0])} of {fp[1]} in {e(fp[2])} with {fp[3]} league point{'s' if fp[3] != 1 else ''}"
                 if r:
                     bits[-1] += f", and ranked {ordinal(r[0])} of {r[1]} in {e(t['c'])}"
                 bits[-1] += '.'
             else:
-                bits.append(f"{e(nm)} haven't played yet this season.")
+                bits.append(f"{e(nm)} haven't started regular-season league play yet.")
             if g:
                 lt = local_time(g['st'])
                 when = f"{nice_date(g['d'])}{' at ' + lt.strftime('%-I:%M %p') if lt else ''}"
@@ -172,7 +172,7 @@ def main():
                     f'<p class="lede">{" ".join(bits)}</p>',
                     f'<a class="cta" href="/#{key}">Follow {e(nm)} on {BRAND}</a>' + (f'<a class="cta alt" href="/#{div["id"]}-game-{up["g"]}">Next game preview</a>' if up else ''),
                     '<div class="facts">'
-                    f'<div><b>{t["w"]}-{t["l"]}-{t["t"]}</b><span>Record (W-L-T)</span></div>'
+                    f'<div><b>{t["w"]}-{t["l"]}-{t["t"]}</b><span>League record (W-L-T)</span></div>'
                     + (f'<div><b>{ordinal(fp[0])}</b><span>of {fp[1]} in {e(fp[2])}</span></div>' if fp else '')
                     + (f'<div><b>#{r[0]}</b><span>of {r[1]} in {e(t["c"])}</span></div>' if r else '')
                     + f'<div><b>{t["gf"]}-{t["ga"]}</b><span>Goals for and against</span></div></div>']

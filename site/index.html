@@ -371,7 +371,7 @@ const REGIONS = [['pcaha','PCAHA'],['island','Island'],['all','All']];
 const GLOSS = {
   rank: ['Rank', 'Position by Power among the teams shown. Change the filter and the ranks change with it.'],
   move: ['Movement', 'Places gained or lost compared with the ratings two weeks ago. "new" means the team had no rating then.'],
-  record: ['Record', 'Wins, losses and ties in every game this season: placement, league, playoffs and tournaments.'],
+  record: ['Record', 'Wins, losses and ties in regular-season league games only. Placement, tournament, playoff and exhibition games don\'t count toward the record or flight standings, but they do count in the power ratings and show in the game log.'],
   power: ['Power', 'Goal differential per game you would expect against an average team in this category, on neutral ice. +2.0 means about two goals better than average. It accounts for who each team played.'],
   gf: ['GF*', 'Goals per game this team would be expected to score against an average opponent in the age group. The offence rating.'],
   ga: ['GA*', 'Goals per game this team would be expected to allow against an average opponent in the age group. The defence rating; lower is better.'],
@@ -425,6 +425,8 @@ async function getJSON(p) { const r = await fetch(p); if (!r.ok) throw new Error
 async function loadDiv(div) { if (!S.data[div]) S.data[div] = await getJSON(`data/${div}.json`); return S.data[div]; }
 
 const fmt = (x, d = 1) => x == null ? '–' : Number(x).toFixed(d);
+const luckOf = t => t.ptsPct == null || t.xPtsPct == null ? null : t.ptsPct - t.xPtsPct;
+const allRec = t => t.all ? `${t.all[0]}-${t.all[1]}-${t.all[2]}` : '';
 const sgn = (x, d = 1) => x == null ? '–' : (x > 0 ? '+' : x < 0 ? '−' : '') + Math.abs(x).toFixed(d);
 const pct = x => x == null ? '–' : Math.round(x) + '%';
 const dateLabel = d => new Date(d + 'T12:00:00').toLocaleDateString('en-CA', { weekday: 'short', month: 'short', day: 'numeric' });
@@ -627,10 +629,13 @@ function rankMove(t, days) {
 function teamSummary(D, t) {
   const nm = esc(shortName(t)), p = t.pct || {};
   const ranked = t.rg === 'visitor' ? null : rankedList(D, t.c, 'all'), r = ranked ? ranked.find(x => x.t.id === t.id) : null;
-  const gp = t.w + t.l + t.t;
+  const gp = t.all ? t.all[0] + t.all[1] + t.all[2] : t.w + t.l + t.t;
   if (!gp) return `${nm} haven't played yet this season.`;
   const mv = rankMove(t, 14);
-  let s1 = `${nm} are ${t.w}-${t.l}-${t.t}${r ? ` and ranked ${ordinal(r.rank)} of ${ranked.length} in ${esc(t.c)}` : ''}`;
+  let s1 = (t.w + t.l + t.t
+    ? `${nm} are ${t.w}-${t.l}-${t.t} in league play`
+    : `${nm} haven't started league play yet, and went ${allRec(t)} in placement and tournament games`)
+    + (r ? `, ranked ${ordinal(r.rank)} of ${ranked.length} in ${esc(t.c)}` : '');
   if (mv >= 3) s1 += `, up ${mv} places in the last two weeks`;
   else if (mv <= -3) s1 += `, down ${-mv} places over the last two weeks`;
   s1 += '.';
@@ -772,7 +777,7 @@ function myTeamPanel(D) {
     <h3 class="snapname">${starBtn(div, t.id)}<a href="#${div}-team-${t.id}">${esc(t.n)}</a></h3>
     <p class="note" style="margin:0 0 10px">${r ? `#${r.rank} of ${ranked.length} in ${esc(t.c)} ${moveCell(r.move)}` : `Visiting team in ${esc(t.c)}`}${t.gp < 6 ? ' <span class="prov" tabindex="0" data-tip="early">EARLY</span>' : ''}</p>
     <div class="snap">
-      ${stat('Power', sgn(power(XD, t)), 'power')}${stat('Record', `${t.w}-${t.l}-${t.t}`, 'record')}${stat('Rec vs play', sgn(t.ptsPct - t.xPtsPct, 0), 'luck', 1)}
+      ${stat('Power', sgn(power(XD, t)), 'power')}${stat('Record', `${t.w}-${t.l}-${t.t}`, 'record')}${stat('Rec vs play', sgn(luckOf(t), 0), 'luck', 1)}
       ${stat('GF*', fmt(t.off), 'gf', 1)}${stat('GA*', fmt(t.def), 'ga', 1)}${stat('PP / PK', `${pct(t.st.pp)} / ${pct(t.st.pk)}`, null, 1)}
     </div>
     <p class="summary" style="margin:12px 0 0">${teamSummary(XD, t, div)}</p>
@@ -952,7 +957,7 @@ function viewHome(D) {
   let watchPanel;
   if (feat) {
     const h = D.teams[feat.h], a = D.teams[feat.a], keys = matchKeys(D, h, a, feat).slice(0, 3);
-    const pw = t => power(D, t), cmp = [['Power', sgn(pw(h)), sgn(pw(a)), pw(h) - pw(a)], ['Record', `${h.w}-${h.l}-${h.t}`, `${a.w}-${a.l}-${a.t}`, h.ptsPct - a.ptsPct],
+    const pw = t => power(D, t), cmp = [['Power', sgn(pw(h)), sgn(pw(a)), pw(h) - pw(a)], ['Record', `${h.w}-${h.l}-${h.t}`, `${a.w}-${a.l}-${a.t}`, (h.ptsPct ?? 0) - (a.ptsPct ?? 0)],
       ['Goals for*', fmt(h.off), fmt(a.off), h.off - a.off], ['Goals against*', fmt(h.def), fmt(a.def), a.def - h.def], ['Last 5', formCell(h.form), formCell(a.form), 0]];
     watchPanel = `<section class="panel feature w6">
       <div class="phead"><h2>Game to watch</h2><a href="#${S.div}-game-${feat.g}">Scouting report →</a></div>
@@ -1043,7 +1048,7 @@ function powerCell(v, scale = 6) {
 }
 const SORTS = {
   power: r => -r.t.net, off: r => -r.t.off, def: r => r.t.def, sos: r => -(r.t.sos ?? -99),
-  luck: r => -(r.t.ptsPct - r.t.xPtsPct), pp: r => -(r.t.st.pp ?? -1), pk: r => -(r.t.st.pk ?? -1), rec: r => -r.t.ptsPct,
+  luck: r => -(luckOf(r.t) ?? -999), pp: r => -(r.t.st.pp ?? -1), pk: r => -(r.t.st.pk ?? -1), rec: r => -(r.t.ptsPct ?? -1),
 };
 function viewRankings(D) {
   if (!levelCats(D).length) return `<p class="eyebrow">${esc(D.div)} ${levelName()} power rankings</p><h1>No teams here</h1><p class="lede">There are no ${esc(D.div)} ${levelName()} teams in this season's data. Try the other switches at the top.</p>`;
@@ -1073,7 +1078,7 @@ function viewRankings(D) {
       ${th('off', 'GF*', 'hide-sm adv')}${th('def', 'GA*', 'hide-sm adv')}${th('sos', 'Sched', 'hide-sm adv')}${th('luck', 'Rec vs play', 'hide-sm adv')}
       <th class="l">${tipSpan('form', 'Last 5')}</th>${th('pp', 'PP', 'hide-sm adv')}${th('pk', 'PK', 'hide-sm adv')}</tr></thead>
     <tbody>${rows.map(({ t, rank, move }) => {
-      const luck = t.ptsPct - t.xPtsPct;
+      const luck = luckOf(t);
       return `<tr>
         <td class="l rank">${rank}</td><td class="l">${moveCell(move)}</td>
         <td class="l team">${starBtn(S.div, t.id)}<a href="#${S.div}-team-${t.id}">${esc(t.n)}</a>${t.gp < 6 ? '<span class="prov" tabindex="0" data-tip="early">EARLY</span>' : ''}<small>${esc(t.lg || t.a)}${t.grp ? ' · ' + esc(t.grp) : ''}</small></td>
@@ -1119,11 +1124,11 @@ function viewTeam(D, t) {
   ${bragBox(S.div, t)}
   <div class="tiles">
     <div class="tile"><div class="k" tabindex="0" data-tip="power">Power</div><div class="v num">${sgn(pw)}</div><div class="s">goals a game vs an average ${esc(t.c)} team</div></div>
-    <div class="tile"><div class="k" tabindex="0" data-tip="record">Record</div><div class="v num">${t.w}-${t.l}-${t.t}</div><div class="s">${t.gf} for, ${t.ga} against</div></div>
+    <div class="tile"><div class="k" tabindex="0" data-tip="record">League record</div><div class="v num">${t.w}-${t.l}-${t.t}</div><div class="s">${t.gf} for, ${t.ga} against${t.all ? ` · all games ${allRec(t)}` : ''}</div></div>
     <div class="tile adv"><div class="k" tabindex="0" data-tip="offence">Offence</div><div class="v num">${fmt(t.off)}</div><div class="s">expected goals for a game</div></div>
     <div class="tile adv"><div class="k" tabindex="0" data-tip="defence">Defence</div><div class="v num">${fmt(t.def)}</div><div class="s">expected goals against a game</div></div>
     <div class="tile adv"><div class="k" tabindex="0" data-tip="sched">Schedule so far</div><div class="v num">${sgn(t.sos == null ? null : t.sos - mean)}</div><div class="s">${t.pct && t.pct.sos != null ? `tougher than ${t.pct.sos}% of the category` : ''}</div></div>
-    <div class="tile adv"><div class="k" tabindex="0" data-tip="luck">Record vs play</div><div class="v num">${sgn(t.ptsPct - t.xPtsPct, 0)}</div><div class="s">${t.ptsPct}% of points vs ${t.xPtsPct}% expected</div></div>
+    <div class="tile adv"><div class="k" tabindex="0" data-tip="luck">Record vs play</div><div class="v num">${sgn(luckOf(t), 0)}</div><div class="s">${t.ptsPct == null ? 'starts with league play' : `${t.ptsPct}% of points vs ${t.xPtsPct}% expected`}</div></div>
   </div>
   <div class="grid2" style="margin-bottom:18px">
     <section class="panel"><h2 style="margin-top:0">${tipSpan('hist', 'Power by week')}</h2>${histChart(t)}
@@ -1141,7 +1146,7 @@ function viewTeam(D, t) {
     <section class="panel"><div class="phead" style="margin-bottom:10px"><h2 style="margin:0">Upcoming games</h2>${calMenu(S.div, t)}</div>${awaitBox(D, awaitingFor(D, t.id), t.id)}${up.length ? `<div class="games">${up.slice(0, 4).map(g => gameCard(D, g, t.id)).join('')}</div>${up.length > 4 ? `<p class="note" style="margin:10px 0 0">${up.length - 4} more in the next two weeks. Every scheduled game is listed under What's ahead below.</p>` : ''}` : '<p class="note">No games on the schedule in the next two weeks.</p>'}</section>
     ${(() => { const fs = flightStandings(D, S.div, t, false); return fs ? `<section class="panel">${fs}</section>` : ''; })()}
   </div>
-  <h2 class="adv">Splits</h2>
+  <h2 class="adv">Splits <span class="note" style="font-size:14px;text-transform:none;letter-spacing:0">league games</span></h2>
   <div class="tframe adv"><table><tbody>
     <tr><td class="l">Home</td><td class="num">${rec(t.home)}</td><td class="l">Away</td><td class="num">${rec(t.away)}</td></tr>
     <tr><td class="l">${tipSpan('splits', 'One-goal games')}</td><td class="num">${rec(t.one)}</td><td class="l">Won / lost by 5+</td><td class="num">${t.blow[0]} / ${t.blow[1]}</td></tr>
@@ -1631,7 +1636,7 @@ function matchKeys(D, A, B, m) {
   for (const X of [A, B]) {
     if (X.formPerf != null && X.formPerf >= 1.5) keys.push(`${nm(X)} are playing above their rating, ${sgn(X.formPerf)} goals a game better than expected over the last five.`);
     if (X.formPerf != null && X.formPerf <= -1.5) keys.push(`${nm(X)} have cooled off, ${sgn(X.formPerf)} goals a game below expectations over the last five.`);
-    const luck = X.ptsPct - X.xPtsPct;
+    const luck = luckOf(X);
     if (luck >= 15) keys.push(`${nm(X)}'s record flatters them a little (record vs play ${sgn(luck, 0)}). They've won more close ones than their play suggests.`);
     if (luck <= -15) keys.push(`${nm(X)} are better than their record (record vs play ${sgn(luck, 0)}). Don't be fooled by the standings.`);
   }
@@ -1652,7 +1657,7 @@ function compareRows(D, A, B) {
     ['Penalties a game', penPG(A), penPG(B), v => fmt(v), false, null],
     ['Third periods', A.sheets ? perDiff(A, '3') : null, B.sheets ? perDiff(B, '3') : null, v => sgn(v, 0), true, null],
     ['Schedule so far', A.sos, B.sos, v => sgn(v == null ? null : v - catMean(D, A.c)), true, 'sched'],
-    ['Record vs play', A.ptsPct - A.xPtsPct, B.ptsPct - B.xPtsPct, v => sgn(v, 0), null, 'luck'],
+    ['Record vs play', luckOf(A), luckOf(B), v => sgn(v, 0), null, 'luck'],
   ];
   return rows.map(([label, a, b, f, hiGood, tip]) => {
     let wa = '', wb = '';
