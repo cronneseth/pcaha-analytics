@@ -306,6 +306,18 @@ details.calmenu .menu small { display: block; font-weight: 400; color: var(--mut
 .awaitbox ul { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; }
 .awaitbox .note { margin: 8px 0 0; font-size: 13px; }
 .await-tag { display: inline-block; font: 700 11px/1 var(--body); text-transform: uppercase; letter-spacing: .5px; background: #8a6d1f; color: #fff; border-radius: 999px; padding: 4px 8px; margin-right: 4px; vertical-align: 1px; }
+.lastgame { border-radius: 12px; padding: 12px 14px; margin: 0; background: #eef3fb; border-left: 5px solid var(--blue); }
+.lastgame.W { background: #eaf6ef; border-left-color: var(--good); }
+.lastgame.L { background: #fbeeee; border-left-color: var(--bad); }
+.lastgame.T { background: #fbf5e6; border-left-color: #8a6d1f; }
+.lastgame .lg-score { font: 800 26px/1.1 var(--display); text-transform: uppercase; margin: 4px 0; }
+.lastgame .lg-score a { color: var(--ink); }
+.lastgame.W .lg-score b { color: var(--good); } .lastgame.L .lg-score b { color: var(--bad); }
+.lastgame p { margin: 0 0 8px; font-size: 15px; }
+.lastgame .wabtn { vertical-align: 0; }
+.race { margin: 12px 0 0; font-size: 16px; }
+.mt-grid { display: grid; grid-template-columns: minmax(0, 1.1fr) minmax(0, 1fr); gap: 8px 32px; align-items: start; }
+@media (max-width: 900px) { .mt-grid { grid-template-columns: minmax(0, 1fr); } }
 .nextstrip { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.2fr); gap: 10px 24px; align-items: center; border-left: 4px solid var(--blue); margin: 12px 0; }
 .nextstrip .who { font: 800 22px/1.15 var(--display); text-transform: uppercase; margin: 4px 0 2px; }
 .nextstrip .who a { color: var(--ink); }
@@ -772,25 +784,74 @@ function myTeamPanel(D) {
       ${strengthBar(next.ph, next.pt, next.pa, XD.teams[next.h], XD.teams[next.a], { homeAway: true })}`;
   }
   const chipName = y => `${y.div !== S.div || !inLevel(y.t.c) ? y.div.toUpperCase() + ' ' : ''}${shortName(y.t)}`;
-  return `<section class="panel w6 myteam">
-    <div class="phead"><h2>My team</h2><a href="#${div}-team-${t.id}">Team page →</a></div>
+  return `<section class="panel wide myteam">
+    <div class="phead"><h2>My team</h2><span>${calMenu(div, t)} <a href="#${div}-team-${t.id}">Team page →</a></span></div>
+    <div class="mt-grid"><div>
     ${all.length > 1 ? `<div class="chips" role="group" aria-label="My teams" style="margin-bottom:8px">${all.map(y => `<button type="button" class="chip" data-hstar="${esc(y.key)}" aria-pressed="${y === x}">${esc(chipName(y))}</button>`).join('')}</div>` : ''}
     <h3 class="snapname">${starBtn(div, t.id)}<a href="#${div}-team-${t.id}">${esc(t.n)}</a></h3>
     <p class="note" style="margin:0 0 10px">${r ? `#${r.rank} of ${ranked.length} in ${esc(t.c)} ${moveCell(r.move)}` : `Visiting team in ${esc(t.c)}`}${t.gp < 6 ? ' <span class="prov" tabindex="0" data-tip="early">EARLY</span>' : ''}</p>
     <div class="snap">
-      ${stat('Power', sgn(power(XD, t)), 'power')}${stat('Record', `${t.w}-${t.l}-${t.t}`, 'record')}${stat('Rec vs play', sgn(luckOf(t), 0), 'luck', 1)}
-      ${stat('GF*', fmt(t.off), 'gf', 1)}${stat('GA*', fmt(t.def), 'ga', 1)}${stat('PP / PK', `${pct(t.st.pp)} / ${pct(t.st.pk)}`, null, 1)}
+      ${stat('League record', `${t.w}-${t.l}-${t.t}`, 'record')}${(() => { const f = flightRow(XD, t); return f && f.started ? stat('Flight', `${ordinal(f.place)} of ${f.of}`) : stat('Power', sgn(power(XD, t)), 'power'); })()}${stat('Power rank', r ? `#${r.rank}` : '–', 'power')}
+      ${stat('Rec vs play', sgn(luckOf(t), 0), 'luck', 1)}${stat('GF*', fmt(t.off), 'gf', 1)}${stat('GA*', fmt(t.def), 'ga', 1)}
     </div>
-    <p class="summary" style="margin:12px 0 0">${teamSummary(XD, t, div)}</p>
-    <p style="margin:12px 0"><span class="eyebrow" tabindex="0" data-tip="form">Last 5</span> ${formCell(t.form)}${last ? ` <span class="note">Last: <b class="${last.r === 'W' ? 'up' : last.r === 'L' ? 'down' : ''}">${last.r}</b> ${last.gf}-${last.ga} ${last.h ? 'vs' : '@'} ${esc(XD.teams[last.o] ? shortName(XD.teams[last.o]) : '')}</span>` : ''}</p>
+    ${raceLine(XD, t)}
+    <p style="margin:12px 0"><span class="eyebrow" tabindex="0" data-tip="form">Last 5</span> ${formCell(t.form)}</p>
+    <p class="summary adv" style="margin:0 0 12px">${teamSummary(XD, t, div)}</p>
     ${bragBox(div, t)}
     ${awaitBox(XD, awaitingFor(XD, t.id), t.id, div)}
-    <div class="phead" style="margin:0 0 8px"><h2 style="margin:0;font-size:17px">Next game</h2>${calMenu(div, t)}</div>
-    ${nx}
+    ${next && (new Date(next.d + 'T12:00:00') - new Date(S.index.today + 'T12:00:00')) / 864e5 > 7 ? `<p class="note" style="margin:0 0 8px">Next game: ${esc(dateLabel(next.d))} ${next.h === t.id ? 'vs' : '@'} ${tl(XD.teams[next.h === t.id ? next.a : next.h])} · <a href="#${div}-game-${next.g}">Scouting report →</a></p>` : ''}
+    </div><div>
+    ${awaitingFor(XD, t.id).length ? '' : lastGameCard(XD, div, t)}
     ${(t.hist.length >= 2 ? `<h2 style="margin:16px 0 4px;font-size:17px">${tipSpan('hist', 'Power by week')}</h2>${histChart(t)}` : '')}
     <p style="margin:14px 0 0"><button type="button" class="chip" data-addteam="1">+ Follow another team</button></p>
     ${a2hsTip()}
+    </div></div>
   </section>`;
+}
+// ---------- my team: the last game, and the race for the top half ----------
+function flightRow(XD, t) {
+  for (const p of XD.projections) {
+    if (p.kind !== 'League') continue;
+    const g = p.groups.find(g => g.rows.some(r => r.id === t.id));
+    if (!g) continue;
+    const rows = g.rows.slice().sort((a, b) => (b.pts - a.pts) || (b.xPts - a.xPts));
+    const row = rows.find(r => r.id === t.id);
+    return { lg: p, grp: g, row, place: rows.indexOf(row) + 1, of: rows.length, started: rows.some(r => r.gp > 0) };
+  }
+  return null;
+}
+function lastGameCard(XD, div, t) {
+  const g = t.log[t.log.length - 1];
+  if (!g) return '';
+  const o = XD.teams[g.o], on = o ? shortName(o) : 'their opponent', nm = shortName(t);
+  const verb = g.r === 'W' ? 'beat' : g.r === 'L' ? 'lost to' : 'tied';
+  let why = '';
+  if (g.q != null) {
+    if (g.r === 'W') why = g.q <= 35 ? `RinkRank had them as underdogs (${Math.round(g.q)}% going in), so that's an upset win.` : g.q >= 65 ? 'A win they were expected to get.' : 'A close matchup on paper, and they got it done.';
+    else if (g.r === 'L') why = g.q >= 65 ? `They were favoured (${Math.round(g.q)}% going in), so that one stings.` : g.q <= 35 ? 'A tough opponent, and a loss most teams would take.' : 'A coin-flip game that went the other way.';
+    else why = g.q <= 35 ? 'A point against a stronger team.' : g.q >= 65 ? 'A point dropped against a team they were expected to beat.' : 'An even game, and an even result.';
+  }
+  const ev = g.k && g.k !== 'League' ? ` · ${esc(g.k)}` : '';
+  const txt = `\u{1F3D2} ${nm} ${verb} ${on} ${g.gf}-${g.ga}. ${why}`.trim();
+  const url = `${location.origin}/s/${div}-team-${t.id}.html?d=${S.index.today}`;
+  return `<div class="lastgame ${g.r}">
+    <span class="eyebrow">Last game · ${esc(shortDate(g.d))}${ev}</span>
+    <div class="lg-score"><b>${g.r === 'W' ? 'WIN' : g.r === 'L' ? 'LOSS' : 'TIE'} ${g.gf}-${g.ga}</b> ${g.h ? 'vs' : '@'} ${o ? `<a href="#${div}-team-${o.id}">${esc(on)}</a>` : esc(on)}</div>
+    ${why ? `<p>${why}</p>` : ''}
+    ${CAN_SHARE ? `<a class="wabtn" href="https://api.whatsapp.com/send?text=${encodeURIComponent(txt + '\n' + url)}" target="_blank" rel="noopener">Send to team chat</a>` : ''}
+  </div>`;
+}
+function raceLine(XD, t) {
+  const f = flightRow(XD, t);
+  if (!f || !f.started) return '';
+  const { row, place, of } = f, half = Math.max(1, Math.floor(of / 2));
+  let s = `<b>${ordinal(place)} of ${of}</b> in ${esc(f.grp.name || f.lg.name)}, with a <b>${pct(row.top)}</b> chance of a top-half finish.`;
+  const need = (row.need || []).filter(n => n[1] >= 60).sort((a, b) => a[0] - b[0])[0];
+  if (row.status) s += ` ${esc(row.status)}.`;
+  else if (row.top >= 90) s += ' On track for the top half.';
+  else if (row.top <= 5) s += ' The top half is a long shot now.';
+  else if (need && row.left) s += ` Win ${need[0]} of their ${row.left} league games left and that rises to about ${pct(need[1])}.`;
+  return `<p class="race">${s}</p>`;
 }
 // ---------- first visit: pick your team ----------
 const clubShort = a => a.replace(/\b(Minor Hockey Association|MHA|AHA|IHA|FHA|HA|Hockey|Association)\b/g, '').replace(/\s+/g, ' ').trim() || a;
@@ -1006,10 +1067,10 @@ function viewHome(D) {
   const stand = x && flightStandings(x.D, x.div, x.t, false);
   const panels = x
     ? (stand
-      ? [myTeamPanel(D), `<section class="panel w6">${stand}</section>`, comingPanel, watchPanel, flightPanel(x), ...(lg ? extra.slice(1) : extra)]
-      : [myTeamPanel(D), flightPanel(x), comingPanel, watchPanel, ...extra])
+      ? [myTeamPanel(D), `<section class="panel w6">${stand}</section>`, flightPanel(x), ...(lg ? extra.slice(1) : extra)]
+      : [myTeamPanel(D), flightPanel(x), ...extra])
     : [rankPanel, comingPanel, watchPanel, ...extra];
-  if (panels.length % 2) panels[panels.length - 1] = panels[panels.length - 1].replace('class="panel w6', 'class="panel w6 wide');
+  if (panels.filter(x => !x.includes('class="panel wide')).length % 2) panels[panels.length - 1] = panels[panels.length - 1].replace('class="panel w6', 'class="panel w6 wide');
   return `
   ${x ? '' : `<div class="dash" style="margin-bottom:20px">${welcomePanel(D)}</div>`}
   <div class="homehead"><div>
