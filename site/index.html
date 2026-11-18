@@ -371,6 +371,7 @@ const REGIONS = [['pcaha','PCAHA'],['island','Island'],['all','All']];
 const GLOSS = {
   rank: ['Rank', 'Position by Power among the teams shown. Change the filter and the ranks change with it.'],
   move: ['Movement', 'Places gained or lost compared with the ratings two weeks ago. "new" means the team had no rating then.'],
+  sp: ['Sportsmanship points', 'PCAHA gives a team 1 extra point in a league game when it stays under the penalty-minute limit. They count in the standings, so discipline can decide a close flight. Projections assume each team keeps earning them at about its rate so far.'],
   record: ['Record', 'Wins, losses and ties in regular-season league games only. Placement, tournament, playoff and exhibition games don\'t count toward the record or flight standings, but they do count in the power ratings and show in the game log.'],
   power: ['Power', 'Goal differential per game you would expect against an average team in this category, on neutral ice. +2.0 means about two goals better than average. It accounts for who each team played.'],
   gf: ['GF*', 'Goals per game this team would be expected to score against an average opponent in the age group. The offence rating.'],
@@ -845,7 +846,7 @@ function flightStandings(XD, div, t, compact) {
     if (g) { lg = p; grp = g; break; }
   }
   if (!grp) return '';
-  const started = grp.rows.some(r => r.gp > 0);
+  const started = grp.rows.some(r => r.gp > 0), hasSp = !!(lg.ps && lg.ps.sp);
   const rows = grp.rows.slice().sort((a, b) => started ? (b.pts - a.pts) || (b.xPts - a.xPts) : (b.top - a.top) || (b.xPts - a.xPts));
   const head = `<div class="phead" style="margin:${compact ? '16px 0 6px' : '0 0 8px'}"><h2 style="margin:0;${compact ? 'font-size:17px' : ''}">${esc(grp.name || lg.name)} standings</h2><a href="#${div}-leagues">Projections →</a></div>`;
   return `${head}
@@ -853,9 +854,10 @@ function flightStandings(XD, div, t, compact) {
     <table class="minirank"><tbody>${rows.map((r, i) => { const m = XD.teams[r.id]; return `<tr class="${r.id === t.id ? 'me' : ''}">
       <td class="l rank">${started ? i + 1 : ''}</td>
       <td class="l team">${m ? `<a href="#${div}-team-${m.id}">${esc(shortName(m))}</a>` : r.id}</td>
-      <td class="num" title="League games played">${r.gp} GP</td><td class="num"><b>${r.pts}</b> pts</td>
+      <td class="num hide-sm" title="League record (W-L-T)">${r.w != null ? `${r.w}-${r.l}-${r.t}` : `${r.gp} GP`}</td>
+      ${hasSp ? `<td class="num" title="Sportsmanship points">${r.sp ?? 0} SP</td>` : ''}<td class="num"><b>${r.pts}</b> pts</td>
       <td class="num" title="Chance of a top-half finish">${pct(r.top)}</td></tr>`; }).join('')}</tbody></table>
-    <p class="note" style="margin:6px 0 0">Last column: chance of a ${tipSpan('top', 'top-half finish')}.</p>`;
+    <p class="note" style="margin:6px 0 0">${hasSp ? `Points include ${tipSpan('sp', 'sportsmanship points')} (SP). ` : ''}Last column: chance of a ${tipSpan('top', 'top-half finish')}.</p>`;
 }
 
 // ---------- the followed team's flight, ranked ----------
@@ -1234,11 +1236,11 @@ function viewLeagues(D) {
   ${have.length > 1 ? `<div class="controls"><div class="chips" role="group" aria-label="Type">${have.map(([k, n]) => `<button type="button" class="chip" data-pkind="${k}" aria-pressed="${k === S.pkind}">${n}</button>`).join('')}</div></div>` : ''}
   ${ps.length ? ps.map(p => `
     <h2>${esc(p.name)}</h2>
-    <p class="note">${p.played} games played, ${p.remaining} to go${p.start ? `, ${esc(p.start)} to ${esc(p.end)}` : ''}. Points: ${p.ps.w} for a win, ${p.ps.t} for a tie, ${p.ps.l} for a loss${p.ps.fit === 'exact' ? '' : p.ps.fit === 'assumed' ? ' (assumed until results come in)' : ' (approximate; this league awards some points by period)'}.</p>
+    <p class="note">${p.played} games played, ${p.remaining} to go${p.start ? `, ${esc(p.start)} to ${esc(p.end)}` : ''}. Points: ${p.ps.w} for a win, ${p.ps.t} for a tie, ${p.ps.l} for a loss${p.ps.sp ? ', plus 1 sportsmanship point a game' : ''}${p.ps.fit === 'exact' ? '' : p.ps.fit === 'assumed' ? ' (assumed until results come in)' : ' (approximate)'}.</p>
     ${p.groups.map(g => `${g.name ? `<h3>${esc(g.name)}</h3>` : ''}
-    <div class="tframe" style="margin-bottom:14px"><table><thead><tr><th class="l">Team</th><th>${tipSpan('pts', 'Pts')}</th><th>${tipSpan('gp', 'GP')}</th><th class="hide-sm">${tipSpan('left', 'Left')}</th><th>${tipSpan('projected', 'Projected')}</th><th>${tourn ? tipSpan('poolwin', 'Pool win') : tipSpan('p1', '1st')}</th><th>${tipSpan('top', 'Top half')}</th><th class="hide-sm adv">${tipSpan('avgfin', 'Avg finish')}</th>${tourn ? '' : `<th class="l">${tipSpan('need', 'For top half')}</th>`}<th class="l">${tipSpan('status', 'Status')}</th></tr></thead>
+    <div class="tframe" style="margin-bottom:14px"><table><thead><tr><th class="l">Team</th><th>${tipSpan('pts', 'Pts')}</th>${p.ps.sp ? `<th class="hide-sm">${tipSpan('sp', 'SP')}</th>` : ''}<th>${tipSpan('gp', 'GP')}</th><th class="hide-sm">${tipSpan('left', 'Left')}</th><th>${tipSpan('projected', 'Projected')}</th><th>${tourn ? tipSpan('poolwin', 'Pool win') : tipSpan('p1', '1st')}</th><th>${tipSpan('top', 'Top half')}</th><th class="hide-sm adv">${tipSpan('avgfin', 'Avg finish')}</th>${tourn ? '' : `<th class="l">${tipSpan('need', 'For top half')}</th>`}<th class="l">${tipSpan('status', 'Status')}</th></tr></thead>
     <tbody>${g.rows.map(r => { const t = D.teams[r.id];
-      return `<tr><td class="l team">${t ? `<a href="#${S.div}-team-${t.id}">${esc(t.n)}</a>` : r.id}</td><td class="num">${r.pts}</td><td class="num">${r.gp}</td><td class="num hide-sm">${r.left}</td><td class="num"><b>${fmt(r.xPts)}</b></td><td class="num">${pct(r.p1)}</td><td class="num">${pct(r.top)}</td><td class="num hide-sm adv">${fmt(r.avg)}</td>${tourn ? '' : `<td class="l">${needCell(r)}</td>`}<td class="l status">${r.status ? `<span class="${/Clinched|clinched/.test(r.status) ? 'up' : /Out of/.test(r.status) ? 'down' : ''}">${esc(r.status)}</span>` : ''}</td></tr>`; }).join('')}</tbody></table></div>`).join('')}
+      return `<tr><td class="l team">${t ? `<a href="#${S.div}-team-${t.id}">${esc(t.n)}</a>` : r.id}</td><td class="num">${r.pts}</td>${p.ps.sp ? `<td class="num hide-sm">${r.sp ?? 0}</td>` : ''}<td class="num">${r.gp}</td><td class="num hide-sm">${r.left}</td><td class="num"><b>${fmt(r.xPts)}</b></td><td class="num">${pct(r.p1)}</td><td class="num">${pct(r.top)}</td><td class="num hide-sm adv">${fmt(r.avg)}</td>${tourn ? '' : `<td class="l">${needCell(r)}</td>`}<td class="l status">${r.status ? `<span class="${/Clinched|clinched/.test(r.status) ? 'up' : /Out of/.test(r.status) ? 'down' : ''}">${esc(r.status)}</span>` : ''}</td></tr>`; }).join('')}</tbody></table></div>`).join('')}
   `).join('') : '<p class="note">Nothing with games left in this age group yet. Rep leagues appear here once PCAHA publishes the season schedule.</p>'}`;
 }
 

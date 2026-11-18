@@ -72,21 +72,23 @@ def points_system(teams):
                 if not (lp <= tp < w):
                     continue
                 errs = [abs(r['wins'] * w + r['ties'] * tp + r['losses'] * lp + (r.get('otWins') or 0) * w
-                            + (r.get('otLosses') or 0) * tp - r['points']) for r in rows]
+                            + (r.get('otLosses') or 0) * tp + (r.get('sportsmanshipPoints') or 0) - r['points']) for r in rows]
                 key = (sum(e > 0.5 for e in errs), sum(errs))
                 if best is None or key < best[0]:
                     best = (key, w, tp, lp)
     (misses, _), w, tp, lp = best
     err = 0 if misses == 0 else 1
     # Some leagues award points per period; those only fit roughly.
-    return {'w': w, 't': tp, 'l': lp, 'fit': 'exact' if err < 0.5 else 'approx'}
+    # PCAHA leagues also give a sportsmanship point per game for staying under the penalty limit.
+    sp = 1 if any(r.get('sportsmanshipPoints') for r in rows) else 0
+    return {'w': w, 't': tp, 'l': lp, 'sp': sp, 'fit': 'exact' if err < 0.5 else 'approx'}
 
 
 def scenarios(rows, ps, played=True):
     """Plain-language standings status from points alone: clinched first,
     out of first, points needed to clinch, top-half clinched or out of reach.
     Tie-breakers aren't in the data, so a tie on points never counts as clinched."""
-    w = ps['w']
+    w = ps['w'] + ps.get('sp', 0)
     half = max(1, len(rows) // 2)
     for r in rows:
         r['max'] = r['pts'] + r['left'] * w
@@ -715,11 +717,23 @@ def build_division(div, data_dir, sheets, sched_meta, today, pred_log):
             hpts = np.where(hg > ag, ps['w'], np.where(hg == ag, ps['t'], ps['l']))
             apts = np.where(ag > hg, ps['w'], np.where(hg == ag, ps['t'], ps['l']))
             pts = np.tile(base_pts, (SIMS, 1))
+            if ps.get('sp'):
+                # Sportsmanship points: each game, at the team's own rate so far,
+                # pulled toward the league's rate while there are only a few games.
+                gp_ = np.array([t.get('gamesPlayed') or 0 for t in s['teams']], float)
+                sp_ = np.array([t.get('sportsmanshipPoints') or 0 for t in s['teams']], float)
+                lg_rate = sp_.sum() / gp_.sum() if gp_.sum() else 0.8
+                rate = (sp_ + 4 * lg_rate) / (gp_ + 4)
+                hs_ = rng.random((SIMS, len(rem))) < rate[hi]
+                as_ = rng.random((SIMS, len(rem))) < rate[ai]
             gd = np.tile(base_gd, (SIMS, 1))
             wins = np.zeros((SIMS, len(tids)), int)
             for j in range(len(rem)):
                 pts[:, hi[j]] += hpts[:, j]
                 pts[:, ai[j]] += apts[:, j]
+                if ps.get('sp'):
+                    pts[:, hi[j]] += hs_[:, j]
+                    pts[:, ai[j]] += as_[:, j]
                 wins[:, hi[j]] += hg[:, j] > ag[:, j]
                 wins[:, ai[j]] += ag[:, j] > hg[:, j]
                 gd[:, hi[j]] += hg[:, j] - ag[:, j]
@@ -743,6 +757,8 @@ def build_division(div, data_dir, sheets, sched_meta, today, pred_log):
                 rk = ranks[:, k]
                 rows_out.append({
                     'id': tid, 'pts': t['points'], 'gp': t['gamesPlayed'],
+                    'w': t.get('wins') or 0, 'l': t.get('losses') or 0, 't': t.get('ties') or 0,
+                    'sp': t.get('sportsmanshipPoints'),
                     'left': int(sum(1 for g in rem if tid in (g['homeTeamId'], g['awayTeamId']))),
                     'xPts': r1(pts[:, cols[k]].mean()),
                     'p1': r1((rk == 1).mean() * 100, 0),
