@@ -333,7 +333,7 @@ details.calmenu .menu small { display: block; font-weight: 400; color: var(--mut
 .mailbox button:disabled { opacity: .6; }
 .mailbox .mb-fine { margin: 8px 0 0; font-size: 12.5px; }
 .mailbox .mb-msg { margin: 8px 0 0; font-size: 15px; color: var(--ink); } .mailbox .mb-msg:empty { display: none; }
-.myteam .mailbox .mb-top { grid-template-columns: minmax(0, 1fr); } .myteam .mailbox .mb-peek { display: none; }
+.mailpanel { padding: 0; border: 0; background: none; box-shadow: none; } .mailpanel .mailbox { margin: 0; }
 @media (max-width: 640px) { .mailbox .mb-top { grid-template-columns: minmax(0, 1fr); margin-bottom: 12px; } .mailbox .mb-peek { transform: none; } .mailbox button { flex: 1 1 100%; } }
 .mailbox .hp { position: absolute; left: -9999px; width: 1px; height: 1px; opacity: 0; }
 .mt-grid { display: grid; grid-template-columns: minmax(0, 1.1fr) minmax(0, 1fr); gap: 8px 32px; align-items: start; }
@@ -820,7 +820,6 @@ function myTeamPanel(D) {
     <p class="summary adv" style="margin:0 0 12px">${teamSummary(XD, t, div)}</p>
     ${bragBox(div, t)}
     ${awaitBox(XD, awaitingFor(XD, t.id), t.id, div)}
-    ${mailBox(div, t, XD)}
     ${next && (new Date(next.d + 'T12:00:00') - new Date(S.index.today + 'T12:00:00')) / 864e5 > 7 ? `<p class="note" style="margin:0 0 8px">Next game: ${esc(dateLabel(next.d))} ${next.h === t.id ? 'vs' : '@'} ${tl(XD.teams[next.h === t.id ? next.a : next.h])} · <a href="#${div}-game-${next.g}">Scouting report →</a></p>` : ''}
     </div><div>
     ${awaitingFor(XD, t.id).length ? '' : lastGameCard(XD, div, t)}
@@ -840,7 +839,7 @@ function mailSubject(D, t) {
   return `${shortName(t)}: ${bits.length ? bits.join(', ') : 'your week'}`;
 }
 function mailBox(div, t, D = S.data[div]) {
-  if (!MAIL_ON || !CAN_SHARE || t.rg === 'visitor') return '';
+  if (!MAIL_ON || !CAN_SHARE || t.rg === 'visitor' || store(`rr-mail-${div}:${t.id}`)) return '';
   const nm = esc(shortName(t));
   return `<form class="mailbox" data-mailteam="${div}:${t.id}" data-mailname="${nm}" novalidate>
     <div class="mb-top">
@@ -878,7 +877,7 @@ document.addEventListener('submit', async ev => {
     const r = await fetch('/api/subscribe', { method: 'POST', headers: { 'content-type': 'application/json' },
       body: JSON.stringify({ email, team: f.dataset.mailteam, name: f.dataset.mailname, website: f.website.value }) });
     const j = await r.json().catch(() => ({}));
-    if (r.ok && j.ok) { f.querySelector('.mb-row').remove(); const fine = f.querySelector('.mb-fine'); if (fine) fine.remove(); msg.innerHTML = `<b>Almost done.</b> Check your inbox for an email from RinkRank and tap the link to confirm. (Peek in spam or Promotions if it's not there in a minute.)`; }
+    if (r.ok && j.ok) { store(`rr-mail-${f.dataset.mailteam}`, '1'); f.querySelector('.mb-row').remove(); const fine = f.querySelector('.mb-fine'); if (fine) fine.remove(); msg.innerHTML = `<b>Almost done.</b> Check your inbox for an email from RinkRank and tap the link to confirm. (Peek in spam or Promotions if it's not there in a minute.)`; }
     else { msg.textContent = j.error || 'Couldn\'t sign you up right now. Please try again later.'; btn.disabled = false; }
   } catch (e) { msg.textContent = 'Couldn\'t reach RinkRank. Check your connection and try again.'; btn.disabled = false; }
 });
@@ -1156,6 +1155,7 @@ function viewHome(D) {
   <div class="dash">
     ${x && S.addMode ? welcomePanel(D) : ''}
     ${yourWeekPanel()}
+    ${x && mailBox(x.div, x.t, x.D) ? `<section class="panel wide mailpanel">${mailBox(x.div, x.t, x.D)}</section>` : ''}
     ${panels.join('\n')}
   </div>
   ${shareCard().replace('panel sharecard', 'panel sharecard bottom')}`;
