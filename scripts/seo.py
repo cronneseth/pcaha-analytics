@@ -230,6 +230,23 @@ def main():
     page(os.path.join(pub, 'teams', 'index.html'), '/teams/', f'All PCAHA minor hockey teams | {BRAND}',
          'Every PCAHA minor hockey team from U11 to U18, with standings, schedules, scores and game previews.', '\n'.join(body))
 
+    # ---- privacy ----
+    page(os.path.join(pub, 'privacy', 'index.html'), '/privacy/', f'Privacy | {BRAND}',
+         f'What {BRAND} collects and what it doesn\'t.', '''<h1>Privacy</h1>
+<div class="panel">
+<p><b>The short version:</b> RinkRank shows team-level hockey results. It doesn't collect anything about players, and the only personal information it ever holds is an email address, if you choose to sign up for the Monday email.</p>
+<h2>Team data</h2>
+<p>Scores, schedules and standings come from PCAHA's public game records. RinkRank shows teams only. It doesn't show individual players' names, stats or photos.</p>
+<h2>The Monday email</h2>
+<p>If you sign up, we keep your email address and the teams you chose, and nothing else. We use them only to send the Monday email for those teams. We never sell or share them, and never send anything else.</p>
+<p>Sign-ups are confirmed by email first, so nobody can sign you up without you knowing. Every email has a one-tap unsubscribe link; unsubscribing from everything removes your teams straight away.</p>
+<p>Email addresses are stored with our email provider, Brevo, which sends the emails for us.</p>
+<h2>On this site</h2>
+<p>The teams you follow and your settings are saved in your own browser, not on our servers. RinkRank has no ads, no accounts and no tracking cookies.</p>
+<h2>Questions</h2>
+<p>RinkRank is a free, independent site and isn't affiliated with PCAHA, BC Hockey or Spordle.</p>
+</div>''')
+
     # ---- sitemap and robots ----
     sm = ''.join(f'<url><loc>{URL}{u}</loc><lastmod>{today}</lastmod><priority>{p}</priority></url>' for u, p in urls)
     with open(os.path.join(pub, 'sitemap.xml'), 'w') as f:

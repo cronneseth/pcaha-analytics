@@ -316,6 +316,14 @@ details.calmenu .menu small { display: block; font-weight: 400; color: var(--mut
 .lastgame p { margin: 0 0 8px; font-size: 15px; }
 .lastgame .wabtn { vertical-align: 0; }
 .race { margin: 12px 0 0; font-size: 16px; }
+.mailbox { background: #eef3fb; border: 1px solid #cfdcf1; border-radius: 12px; padding: 12px 14px; margin: 14px 0 0; }
+.mailbox .mb-h { margin: 0 0 8px; }
+.mailbox .mb-row { display: flex; gap: 8px; flex-wrap: wrap; }
+.mailbox input[type=email] { flex: 1 1 200px; min-width: 0; font: 16px var(--body); padding: 9px 12px; border: 1px solid var(--line); border-radius: 999px; }
+.mailbox button { font: 700 15px var(--body); background: var(--red); color: #fff; border: 0; border-radius: 999px; padding: 9px 16px; cursor: pointer; }
+.mailbox button:disabled { opacity: .6; }
+.mailbox .mb-msg { margin: 6px 0 0; } .mailbox .mb-msg:empty { display: none; }
+.mailbox .hp { position: absolute; left: -9999px; width: 1px; height: 1px; opacity: 0; }
 .mt-grid { display: grid; grid-template-columns: minmax(0, 1.1fr) minmax(0, 1fr); gap: 8px 32px; align-items: start; }
 @media (max-width: 900px) { .mt-grid { grid-template-columns: minmax(0, 1fr); } }
 .nextstrip { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.2fr); gap: 10px 24px; align-items: center; border-left: 4px solid var(--blue); margin: 12px 0; }
@@ -549,7 +557,7 @@ function chrome() {
   $('#foot').innerHTML = `RinkRank is an independent site, not affiliated with PCAHA, BC Hockey or Spordle. Game results come from the public PCAHA Spordle data via the open
     <a href="https://github.com/ecoTokenJames/pcaha-stats" target="_blank" rel="noopener">pcaha-stats</a> project. Data as of ${esc(upd)}. ${esc(S.index.season || '')} season.
     Team-level numbers only. Official results live at <a href="https://games.pcaha.ca" target="_blank" rel="noopener">games.pcaha.ca</a>.
-    <a href="/teams/">Find any team</a>.
+    <a href="/teams/">Find any team</a> · <a href="/privacy/">Privacy</a>.
     <br><b>RinkRank is for fun and information only. Please don't bet on minor hockey. These are kids' games.</b>`;
 }
 
@@ -799,6 +807,7 @@ function myTeamPanel(D) {
     <p class="summary adv" style="margin:0 0 12px">${teamSummary(XD, t, div)}</p>
     ${bragBox(div, t)}
     ${awaitBox(XD, awaitingFor(XD, t.id), t.id, div)}
+    ${mailBox(div, t)}
     ${next && (new Date(next.d + 'T12:00:00') - new Date(S.index.today + 'T12:00:00')) / 864e5 > 7 ? `<p class="note" style="margin:0 0 8px">Next game: ${esc(dateLabel(next.d))} ${next.h === t.id ? 'vs' : '@'} ${tl(XD.teams[next.h === t.id ? next.a : next.h])} · <a href="#${div}-game-${next.g}">Scouting report →</a></p>` : ''}
     </div><div>
     ${awaitingFor(XD, t.id).length ? '' : lastGameCard(XD, div, t)}
@@ -808,6 +817,34 @@ function myTeamPanel(D) {
     </div></div>
   </section>`;
 }
+// ---------- the Monday email sign-up ----------
+const MAIL_ON = false;   // flip to true once Brevo and the Netlify settings are in place
+function mailBox(div, t) {
+  if (!MAIL_ON || !CAN_SHARE || t.rg === 'visitor') return '';
+  return `<form class="mailbox" data-mailteam="${div}:${t.id}" data-mailname="${esc(shortName(t))}" novalidate>
+    <p class="mb-h"><b>Get the Monday email</b> <span class="note">${esc(shortName(t))}'s results, this week's games and the flight standings, every Monday morning. Free.</span></p>
+    <div class="mb-row"><input type="email" name="email" placeholder="Your email" autocomplete="email" required aria-label="Your email">
+    <input type="text" name="website" tabindex="-1" autocomplete="off" class="hp" aria-hidden="true">
+    <button type="submit">Sign me up</button></div>
+    <p class="note mb-msg" role="status"></p>
+  </form>`;
+}
+document.addEventListener('submit', async ev => {
+  const f = ev.target.closest && ev.target.closest('.mailbox');
+  if (!f) return;
+  ev.preventDefault();
+  const msg = f.querySelector('.mb-msg'), btn = f.querySelector('button'), email = f.email.value.trim();
+  if (!/^[^\s@]+@[^\s@]+\.[a-z]{2,}$/i.test(email)) { msg.textContent = 'That email address doesn\'t look right.'; return; }
+  btn.disabled = true; msg.textContent = 'Sending…';
+  try {
+    const r = await fetch('/api/subscribe', { method: 'POST', headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ email, team: f.dataset.mailteam, name: f.dataset.mailname, website: f.website.value }) });
+    const j = await r.json().catch(() => ({}));
+    if (r.ok && j.ok) { f.querySelector('.mb-row').remove(); msg.innerHTML = `<b>Almost done.</b> Check your inbox for an email from RinkRank and tap the link to confirm. (Peek in spam or Promotions if it's not there in a minute.)`; }
+    else { msg.textContent = j.error || 'Couldn\'t sign you up right now. Please try again later.'; btn.disabled = false; }
+  } catch (e) { msg.textContent = 'Couldn\'t reach RinkRank. Check your connection and try again.'; btn.disabled = false; }
+});
+
 // ---------- my team: the last game, and the race for the top half ----------
 function flightRow(XD, t) {
   for (const p of XD.projections) {
@@ -1190,6 +1227,7 @@ function viewTeam(D, t) {
   <p class="lede">${t.rg === 'visitor' ? `A visiting team, seen only in tournaments. It's rated through those games but isn't included in the ${esc(t.c)} rankings.` : `${esc(t.lg || '')}${t.grp ? ' · ' + esc(t.grp) : ''}. Ranked <b>${meR.rank} of ${pcahaList.length}</b> ${rgName} teams in ${esc(t.c)}${me.rank !== meR.rank ? ` (${me.rank} of ${list.length} counting PCAHA and Island teams)` : ''}.`}</p>
   <p class="summary">${teamSummary(D, t)}</p>
   ${nextGameStrip(D, t)}
+  ${mailBox(S.div, t)}
   ${bragBox(S.div, t)}
   <div class="tiles">
     <div class="tile"><div class="k" tabindex="0" data-tip="power">Power</div><div class="v num">${sgn(pw)}</div><div class="s">goals a game vs an average ${esc(t.c)} team</div></div>

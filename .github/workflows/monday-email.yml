@@ -1,0 +1,37 @@
+name: Monday email
+
+on:
+  schedule:
+    - cron: '7 14 * * 1'   # Mondays 7:07 a.m. Vancouver
+  workflow_dispatch:
+    inputs:
+      test_team:
+        description: 'Send one sample only: team key, e.g. u13:178148 (leave blank to send to everyone)'
+        default: ''
+      test_to:
+        description: 'Sample goes to this address'
+        default: ''
+
+permissions:
+  contents: read
+
+jobs:
+  send:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - run: pip install pillow
+      - name: Send
+        env:
+          BREVO_API_KEY: ${{ secrets.BREVO_API_KEY }}
+          RR_SECRET: ${{ secrets.RR_SECRET }}
+        run: |
+          cd scripts
+          if [ -n "${{ inputs.test_team }}" ] && [ -n "${{ inputs.test_to }}" ]; then
+            python weekly_email.py ../site/data --test "${{ inputs.test_team }}" "${{ inputs.test_to }}"
+          else
+            python weekly_email.py ../site/data
+          fi
