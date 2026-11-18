@@ -999,7 +999,13 @@ function viewHome(D) {
       <div class="phead"><h2>Upsets this week</h2><a href="#${S.div}-games">More →</a></div>${upList(6)}
     </section>`];
   // Your team first. Before a team is picked, the welcome box takes the top of the page.
-  const panels = x ? [myTeamPanel(D), flightPanel(x), comingPanel, watchPanel, ...extra]
+  // With a team picked: its flight standings sit beside it, and the rankings move down
+  // into the league race's spot (the standings already show the race for that flight).
+  const stand = x && flightStandings(x.D, x.div, x.t, false);
+  const panels = x
+    ? (stand
+      ? [myTeamPanel(D), `<section class="panel w6">${stand}</section>`, comingPanel, watchPanel, flightPanel(x), ...(lg ? extra.slice(1) : extra)]
+      : [myTeamPanel(D), flightPanel(x), comingPanel, watchPanel, ...extra])
     : [rankPanel, comingPanel, watchPanel, ...extra];
   if (panels.length % 2) panels[panels.length - 1] = panels[panels.length - 1].replace('class="panel w6', 'class="panel w6 wide');
   return `
