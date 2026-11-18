@@ -20,6 +20,7 @@ import html
 import json
 import os
 import sys
+import urllib.error
 import urllib.parse
 import urllib.request
 
@@ -41,9 +42,14 @@ def brevo(path, method='GET', body=None):
     req = urllib.request.Request(API + path, method=method, data=json.dumps(body).encode() if body is not None else None,
                                  headers={'api-key': os.environ.get('BREVO_API_KEY', ''), 'accept': 'application/json',
                                           'content-type': 'application/json'})
-    with urllib.request.urlopen(req, timeout=60) as r:
-        t = r.read()
-        return json.loads(t) if t else {}
+    if not os.environ.get('BREVO_API_KEY'):
+        sys.exit('BREVO_API_KEY is empty: add it under the repo\'s Settings > Secrets and variables > Actions.')
+    try:
+        with urllib.request.urlopen(req, timeout=60) as r:
+            t = r.read()
+            return json.loads(t) if t else {}
+    except urllib.error.HTTPError as err:
+        sys.exit(f'Brevo said {err.code} for {method} {path}: {err.read().decode(errors="replace")[:400]}')
 
 
 def subscribers():
