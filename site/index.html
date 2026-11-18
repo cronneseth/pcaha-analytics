@@ -562,6 +562,7 @@ function chrome() {
 }
 
 async function render() {
+  if (!S.index) return;   // still loading; start() renders once the data is in
   const r = parseHash();
   S.view = r.view; if (r.div) S.div = r.div; S.team = r.team ?? null;
   if (!S.index.divisions.some(d => d.id === S.div)) S.div = S.index.divisions[0].id;
