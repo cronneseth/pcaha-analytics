@@ -10,7 +10,7 @@ export default async (req) => {
   if (!validEmail(email)) return Response.json({ ok: false, error: 'That email address doesn\'t look right.' }, { status: 400 });
   if (!validTeam(team)) return Response.json({ ok: false, error: 'Pick a team first.' }, { status: 400 });
   const name = String(b.name || 'your team').slice(0, 80);
-  const link = `${SITE}/api/confirm?e=${encodeURIComponent(email)}&t=${encodeURIComponent(team)}&s=${sign(email, team, 'confirm')}`;
+  const link = `${SITE}/api/confirm?e=${encodeURIComponent(email)}&t=${encodeURIComponent(team)}&s=${sign(email, team, 'confirm')}&n=${encodeURIComponent(name)}`;
   const html = `<div style="font:16px/1.55 system-ui,sans-serif;color:#14202a;max-width:520px">
     <p style="font:800 22px Impact,sans-serif;margin:0 0 12px">RINK<span style="color:#c8203a">RANK</span></p>
     <p>Tap below to get a short email every Monday morning about <b>${esc(name)}</b>: last week's results, this week's games and where they stand in their flight.</p>
